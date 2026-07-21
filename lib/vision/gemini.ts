@@ -1,7 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, createPartFromBase64, createPartFromText } from "@google/genai";
 import type { VisionResult } from "@/types/analysis";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
+import { describeProviderError } from "./errorMessage";
 
 export async function analyzeWithGemini(
   imageBuffer: Buffer,
@@ -18,22 +19,27 @@ export async function analyzeWithGemini(
   const imageType = await detectImageType(imageBuffer);
   const prompt = buildPrompt(promptType, imageType, "gemini");
 
-  const client = new GoogleGenerativeAI(apiKey);
-  const model = client.getGenerativeModel({
-    model: modelName,
-    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-  });
+  const client = new GoogleGenAI({ apiKey });
 
   let text = "";
   try {
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: imageBuffer.toString("base64"), mimeType } },
-    ]);
-    text = result.response.text() ?? "";
+    const response = await client.models.generateContent({
+      model: modelName,
+      contents: [createPartFromText(prompt), createPartFromBase64(imageBuffer.toString("base64"), mimeType)],
+      config: {
+        temperature: 0.1,
+        maxOutputTokens: 2048,
+        // Gemini 2.5 is a "thinking" model — without this, it can spend the
+        // entire maxOutputTokens budget on invisible reasoning tokens before
+        // writing any of the visible JSON answer, so the response gets cut
+        // off mid-object and fails to parse. Matches the original Python
+        // pipeline's thinking_budget=0 setting.
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
+    text = response.text ?? "";
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return normalizeModelResult(null, "gemini", modelName, { errorMessage: `Gemini API 호출 실패: ${message}` });
+    return normalizeModelResult(null, "gemini", modelName, { errorMessage: describeProviderError(error, "Gemini") });
   }
 
   if (!text) {

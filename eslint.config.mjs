@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone CommonJS dev scripts (test dataset generator, perf runner) —
+    // not part of the app bundle, don't need the same TS/import-style rules.
+    "scripts/**",
   ]),
 ]);
 

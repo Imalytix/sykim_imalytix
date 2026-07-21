@@ -21,12 +21,20 @@ export default function AnalysisStepsLoader({ active, compact = false }: Analysi
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  // Reset step state during render when `active` flips off, rather than in an
+  // effect — this is React's recommended way to adjust state in response to a
+  // prop change (avoids an extra commit/cascading render).
+  const [prevActive, setPrevActive] = useState(active);
+  if (active !== prevActive) {
+    setPrevActive(active);
     if (!active) {
       setCurrentStep(0);
       setCompletedSteps(new Set());
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (!active) return;
 
     let stepIndex = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];

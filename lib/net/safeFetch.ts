@@ -100,6 +100,9 @@ export async function safeFetchImage(url: string, maxBytes: number, timeoutMs: n
         signal: controller.signal,
       });
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new SecurityViolationError(`이미지 다운로드 시간이 초과되었습니다 (${Math.round(timeoutMs / 1000)}초).`);
+      }
       const message = error instanceof Error ? error.message : String(error);
       throw new SecurityViolationError(`이미지 다운로드 실패: ${message}`);
     } finally {

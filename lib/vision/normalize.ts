@@ -54,6 +54,21 @@ function normalizeBbox(bbox: unknown): BBox | null {
   return { x1, y1, x2, y2 };
 }
 
+const VALID_SEVERITIES = new Set(["low", "medium", "high"]);
+
+/**
+ * Models occasionally invent severity words outside our 3-level taxonomy
+ * (e.g. Claude returning "critical"). Downstream UI does object-key lookups
+ * keyed by severity (`severityTone[region.severity]`), so an unrecognized
+ * value would silently fall through to no styling — which visually reads as
+ * "unremarkable" for what the model flagged as its *most* severe case. Map
+ * anything we don't recognize to "high" rather than let it understate risk.
+ */
+function normalizeSeverity(value: unknown): Evidence["severity"] {
+  const str = String(value ?? "").toLowerCase();
+  return VALID_SEVERITIES.has(str) ? (str as Evidence["severity"]) : "high";
+}
+
 function normalizeEvidence(items: unknown): Evidence[] {
   if (!Array.isArray(items)) return [];
   return items
@@ -61,7 +76,7 @@ function normalizeEvidence(items: unknown): Evidence[] {
     .map((item) => ({
       type: String(item.type ?? "other"),
       label: String(item.label ?? ""),
-      severity: (String(item.severity ?? "low") as Evidence["severity"]) || "low",
+      severity: normalizeSeverity(item.severity),
       description: String(item.description ?? ""),
     }));
 }
@@ -72,7 +87,7 @@ function normalizeRegions(items: unknown): SuspiciousRegion[] {
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
     .map((item) => ({
       label: String(item.label ?? ""),
-      severity: (String(item.severity ?? "low") as SuspiciousRegion["severity"]) || "low",
+      severity: normalizeSeverity(item.severity),
       description: String(item.description ?? ""),
       bbox: normalizeBbox(item.bbox),
     }));

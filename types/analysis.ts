@@ -67,6 +67,21 @@ export interface AnalysisInput {
   phash: string;
 }
 
+export interface SimilarImageMatch {
+  request_id: string;
+  distance: number;
+  is_ai_generated: boolean | null;
+  ai_probability: number | null;
+  image_path: string | null;
+  created_at: string;
+}
+
+export interface DuplicateCheck {
+  /** false when Supabase isn't configured — matches will always be []. */
+  checked: boolean;
+  matches: SimilarImageMatch[];
+}
+
 export interface AnalysisResult {
   product: string;
   request_id: string;
@@ -79,6 +94,7 @@ export interface AnalysisResult {
   suspicious_regions: SuspiciousRegion[];
   limitations: string[];
   recommended_action: string;
+  duplicate_check: DuplicateCheck;
 }
 
 export interface HealthResponse {

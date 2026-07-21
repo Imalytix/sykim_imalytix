@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { VisionResult } from "@/types/analysis";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
+import { describeProviderError } from "./errorMessage";
 
 type AnthropicImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
@@ -50,8 +51,7 @@ export async function analyzeWithClaude(
     const firstBlock = response.content[0];
     text = firstBlock && firstBlock.type === "text" ? firstBlock.text : "";
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return normalizeModelResult(null, "claude", modelName, { errorMessage: `Claude API request failed: ${message}` });
+    return normalizeModelResult(null, "claude", modelName, { errorMessage: describeProviderError(error, "Claude") });
   }
 
   if (!text) {

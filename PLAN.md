@@ -16,7 +16,7 @@
 | pHash | sharp + DCT 수동 구현 or `imghash` |
 | EXIF 파싱 | exifr |
 | OpenAI | openai (npm) |
-| Gemini | @google/generative-ai |
+| Gemini | @google/genai (신규 통합 SDK; @google/generative-ai는 thinkingConfig 미지원으로 교체됨) |
 | Claude | @anthropic-ai/sdk |
 | DB (트래킹/캐시) | Turso (SQLite on Edge, 무료 플랜) |
 | 배포 | Vercel |
@@ -140,7 +140,7 @@ imalytix-nextjs/
 
 ### Phase 1 — 프로젝트 셋업 (Day 1)
 - [ ] `npx create-next-app@latest imalytix-nextjs --typescript --tailwind --app`
-- [ ] 패키지 설치: `sharp`, `openai`, `@google/generative-ai`, `@anthropic-ai/sdk`, `exifr`
+- [ ] 패키지 설치: `sharp`, `openai`, `@google/genai`, `@anthropic-ai/sdk`, `exifr`
 - [ ] `.env.local` 작성 (위 2번 내용)
 - [ ] `types/analysis.ts` 작성 (기존 `analysis.ts` 이식)
 - [ ] AppHeader 컴포넌트 이식

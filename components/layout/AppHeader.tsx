@@ -34,11 +34,8 @@ export default function AppHeader() {
   return (
     <header className="border-b border-slate-100 bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm">
-            <Image src="/imalytix-logo.svg" alt="Imalytix" width={32} height={32} className="h-full w-full object-cover" />
-          </div>
-          <span className="text-[15px] font-semibold tracking-tight text-slate-900">Imalytix</span>
+        <Link href="/" className="flex items-center">
+          <Image src="/imalytix-logo.png" alt="Imalytix" width={912} height={316} priority className="h-7 w-auto" />
         </Link>
 
         <nav className="flex items-center gap-5">

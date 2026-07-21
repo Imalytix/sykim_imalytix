@@ -49,8 +49,9 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected }: 
           accept="image/jpeg,image/png,image/webp"
           className="hidden"
           onChange={async (e) => {
-            await handleFiles(e.target.files);
-            e.currentTarget.value = "";
+            const input = e.currentTarget;
+            await handleFiles(input.files);
+            input.value = "";
           }}
         />
       </div>
@@ -106,8 +107,9 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected }: 
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={async (e) => {
-          await handleFiles(e.target.files);
-          e.currentTarget.value = "";
+          const input = e.currentTarget;
+          await handleFiles(input.files);
+          input.value = "";
         }}
       />
       <input
@@ -117,8 +119,9 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected }: 
         capture="environment"
         className="hidden"
         onChange={async (e) => {
-          await handleFiles(e.target.files);
-          e.currentTarget.value = "";
+          const input = e.currentTarget;
+          await handleFiles(input.files);
+          input.value = "";
         }}
       />
     </div>

@@ -32,10 +32,50 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!**/.env.example
 
 # vercel
 .vercel
 
+# Claude Code local runtime state (scheduling locks etc.) — not project config
+/.claude/
+
+# personal scratch notebooks — not part of the app
+/Imalytix_Implementation_Review_v2.ipynb
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local storage: analyzed images + request logs (never commit user-uploaded content)
+/storage/
+
+# generated performance test images/reports (regenerate via scripts/generate-test-dataset.js)
+/test-data/images/
+/test-data/report*.json
+
+# ml/ (Module A — DINOv2 linear probe): training images and Python venv/artifacts
+# never get committed; each teammate populates their own local ml/data/.
+# The trained linear_probe.joblib is small (tens of KB) and NOT ignored below,
+# so it can be committed once training actually produces one.
+/ml/data/**/*.jpg
+/ml/data/**/*.jpeg
+/ml/data/**/*.png
+/ml/data/**/*.webp
+/ml/artifacts/*.npy
+/ml/.venv/
+/ml/__pycache__/
+/ml/**/__pycache__/
+# raw Unsplash Lite dataset download (~1GB, re-downloadable from unsplash.com/data/lite/latest).
+# Ignore by extension (*.tsv000 is distinctive and only this dataset uses it)
+# so it's caught regardless of what the extracted folder happens to be named
+# (the official zip currently extracts to "unsplash-research-dataset-lite-latest").
+/ml/**/*.tsv000
+/ml/unsplash-lite/
+/ml/unsplash-research-dataset-lite-latest/
+
+# gated model checkpoints (e.g. DINOv3 .pth) — never commit, Meta's license
+# requires each person to obtain their own copy through the approval process
+/ml/checkpoints/*.pth
+/ml/checkpoints/*.pt

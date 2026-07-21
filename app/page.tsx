@@ -5,10 +5,13 @@ import { useState } from "react";
 import AnalysisStepsLoader from "@/components/results/AnalysisStepsLoader";
 import ErrorState from "@/components/results/ErrorState";
 import AppHeader from "@/components/layout/AppHeader";
+import ImageCanvasWithBoxes from "@/components/results/ImageCanvasWithBoxes";
 import MetadataResultCard from "@/components/results/MetadataResultCard";
 import ProviderResultCard from "@/components/results/ProviderResultCard";
 import RecommendationPanel from "@/components/results/RecommendationPanel";
+import RegionDetailPanel from "@/components/results/RegionDetailPanel";
 import ScoreGauge from "@/components/results/ScoreGauge";
+import SuspiciousRegionList from "@/components/results/SuspiciousRegionList";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult, VisionResult } from "@/types/analysis";
 import { toPercentageScore } from "@/lib/utils/score";
@@ -63,10 +66,13 @@ export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedRegionIndex, setSelectedRegionIndex] = useState(0);
 
   const visionResults = analysisResult?.vision_results ?? [];
   const metadata = analysisResult?.metadata_analysis;
+  const suspiciousRegions = analysisResult?.suspicious_regions ?? [];
   const scorePercent = analysisResult ? toPercentageScore(analysisResult.final_result.ai_probability) : 0;
+  const allProvidersFailed = visionResults.length > 0 && visionResults.every((v) => v.error_message);
 
   const handleAnalyze = async () => {
     try {
@@ -91,6 +97,7 @@ export default function Home() {
       }
 
       setAnalysisResult(result);
+      setSelectedRegionIndex(0);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "분석에 실패했습니다.");
     } finally {
@@ -223,6 +230,13 @@ export default function Home() {
 
             {errorMessage && <ErrorState message={errorMessage} />}
 
+            {allProvidersFailed && (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+                <span className="font-semibold">모든 비전 모델 호출이 실패했습니다.</span> 아래 결과는 메타데이터 분석만 반영된 값입니다. 각
+                카드에서 실패 원인을 확인해주세요.
+              </div>
+            )}
+
             <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
               <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
                 <p className="mb-5 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">종합 점수</p>
@@ -253,6 +267,30 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {suspiciousRegions.length > 0 && previewUrl && (
+              <div className="mt-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <p className="mb-5 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  상세 분석 — 의심 부위 ({suspiciousRegions.length})
+                </p>
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+                  <ImageCanvasWithBoxes
+                    imageUrl={previewUrl}
+                    regions={suspiciousRegions}
+                    selectedIndex={selectedRegionIndex}
+                    onSelectRegion={setSelectedRegionIndex}
+                  />
+                  <div className="space-y-5">
+                    <RegionDetailPanel region={suspiciousRegions[selectedRegionIndex]} regionIndex={selectedRegionIndex} />
+                    <SuspiciousRegionList
+                      regions={suspiciousRegions}
+                      selectedIndex={selectedRegionIndex}
+                      onSelectRegion={setSelectedRegionIndex}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5">
               <MetadataResultCard

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeImageBytes, ImageValidationError, type AnalysisMode } from "@/lib/analysis/pipeline";
+import { analyzeImageBytes, ImageValidationError, makeRequestId, type AnalysisMode } from "@/lib/analysis/pipeline";
 import { safeFetchImage, SecurityViolationError } from "@/lib/net/safeFetch";
+import { extractRequestContext, logAnalysisEvent } from "@/lib/logging/analysisLogger";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -8,6 +9,10 @@ export const maxDuration = 60;
 const VALID_MODES: AnalysisMode[] = ["quick", "standard", "deep"];
 
 export async function POST(request: NextRequest) {
+  const requestId = makeRequestId();
+  const context = extractRequestContext(request);
+  const startedAt = Date.now();
+
   let body: { image_url?: string; mode?: string };
   try {
     body = await request.json();
@@ -26,18 +31,49 @@ export async function POST(request: NextRequest) {
 
   try {
     const downloaded = await safeFetchImage(imageUrl, maxBytes, timeoutMs);
-    const result = await analyzeImageBytes({
+    const { result, imagePath } = await analyzeImageBytes({
       imageBytes: downloaded.buffer,
       mode,
       inputType: "image_url",
       sourceUrl: downloaded.finalUrl,
+      requestId,
     });
+
+    await logAnalysisEvent({
+      status: "ok",
+      requestId,
+      durationMs: Date.now() - startedAt,
+      context,
+      inputType: "image_url",
+      mode,
+      sourceUrl: downloaded.finalUrl,
+      imagePath,
+      result,
+    });
+
     return NextResponse.json(result);
   } catch (error) {
+    const message =
+      error instanceof SecurityViolationError || error instanceof ImageValidationError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "이미지 분석 중 오류가 발생했습니다.";
+
+    await logAnalysisEvent({
+      status: "error",
+      requestId,
+      durationMs: Date.now() - startedAt,
+      context,
+      inputType: "image_url",
+      mode,
+      sourceUrl: imageUrl,
+      errorMessage: message,
+    });
+
     if (error instanceof SecurityViolationError || error instanceof ImageValidationError) {
       return NextResponse.json({ detail: error.message }, { status: 400 });
     }
-    const message = error instanceof Error ? error.message : "이미지 분석 중 오류가 발생했습니다.";
     return NextResponse.json({ detail: message }, { status: 500 });
   }
 }

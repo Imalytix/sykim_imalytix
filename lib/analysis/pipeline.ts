@@ -8,6 +8,8 @@ import { aggregateAnalysis } from "./aggregator";
 import { analyzeWithOpenAI } from "@/lib/vision/openai";
 import { analyzeWithGemini } from "@/lib/vision/gemini";
 import { analyzeWithClaude } from "@/lib/vision/anthropic";
+import { saveAnalyzedImage } from "@/lib/storage/imageStore";
+import { findSimilarImages, insertImageRecord } from "@/lib/db/imageRecords";
 
 export type AnalysisMode = "quick" | "standard" | "deep";
 
@@ -20,7 +22,7 @@ const FORMAT_TO_MIME: Record<string, string> = {
   avif: "image/avif",
 };
 
-function makeRequestId(): string {
+export function makeRequestId(): string {
   const now = new Date();
   const stamp = now.toISOString().replace(/[-:]/g, "").replace("T", "_").slice(0, 15);
   const random = Math.random().toString(16).slice(2, 8);
@@ -29,14 +31,21 @@ function makeRequestId(): string {
 
 export class ImageValidationError extends Error {}
 
+export interface AnalyzeOutcome {
+  result: AnalysisResult;
+  /** Path (relative to project root) of the normalized image saved to local disk, or null if saving failed/was skipped. */
+  imagePath: string | null;
+}
+
 export async function analyzeImageBytes(params: {
   imageBytes: Buffer;
   mode: AnalysisMode;
   inputType: "file_upload" | "image_url";
   sourceUrl?: string | null;
   filename?: string | null;
-}): Promise<AnalysisResult> {
-  const { imageBytes, mode, inputType, sourceUrl, filename } = params;
+  requestId: string;
+}): Promise<AnalyzeOutcome> {
+  const { imageBytes, mode, inputType, sourceUrl, filename, requestId } = params;
 
   const originalMeta = await sharp(imageBytes, { failOn: "none" })
     .metadata()
@@ -55,6 +64,10 @@ export async function analyzeImageBytes(params: {
   const preprocessed = await preprocessImage(imageBytes, longSide);
   const phash = await generatePHash(preprocessed.buffer);
 
+  // Kicked off alongside metadata/vision analysis — independent of both, and
+  // its result isn't needed until the response is assembled at the end.
+  const duplicateCheckPromise = findSimilarImages(phash);
+
   const metadataResult = await analyzeMetadata(imageBytes, { sourceUrl, filename, isPng });
 
   const routing = decideRouting(mode, metadataResult, {
@@ -72,9 +85,19 @@ export async function analyzeImageBytes(params: {
 
   const aggregateResult = aggregateAnalysis(metadataResult, visionResults);
 
-  return {
+  // Best-effort local save of the exact (normalized) bytes that were analyzed —
+  // never let a storage failure fail the analysis itself.
+  const imagePath = await saveAnalyzedImage(requestId, preprocessed.buffer);
+
+  const similarMatches = await duplicateCheckPromise;
+  const duplicateCheck = {
+    checked: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
+    matches: similarMatches,
+  };
+
+  const result: AnalysisResult = {
     product: "Imalytix",
-    request_id: makeRequestId(),
+    request_id: requestId,
     mode,
     input: {
       type: inputType,
@@ -95,5 +118,19 @@ export async function analyzeImageBytes(params: {
       ...aggregateResult.limitations,
     ],
     recommended_action: aggregateResult.recommended_action,
+    duplicate_check: duplicateCheck,
   };
+
+  // Best-effort — record this analysis so future requests can be compared
+  // against it. Never let a DB hiccup fail the analysis itself.
+  await insertImageRecord({
+    requestId,
+    phashHex: phash,
+    isAiGenerated: result.final_result.is_ai_generated,
+    aiProbability: result.final_result.ai_probability,
+    imagePath,
+    mode,
+  });
+
+  return { result, imagePath };
 }
