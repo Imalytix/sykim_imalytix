@@ -1,0 +1,24 @@
+# Module A (AI-generated image detection) — DINOv2 frozen backbone + linear probe.
+# Install on the GPU machine (local RTX PRO 500 6GB or Colab), not inside the Next.js app.
+#
+#   python -m venv .venv && source .venv/bin/activate   # or .venv\Scripts\activate on Windows
+#   pip install -r requirements.txt
+
+torch>=2.2
+torchvision>=0.17
+transformers>=4.40
+pillow>=10.0
+numpy>=1.26
+scikit-learn>=1.4
+joblib>=1.3
+tqdm>=4.66
+requests>=2.31
+python-dotenv>=1.0
+pandas>=2.2
+# pinned (not >=): datasets>=4.0 dropped support for the legacy loader
+# script DiffusionDB still uses ("Dataset scripts are no longer supported")
+datasets==2.21.0
+# only needed when IMALYTIX_BACKBONE_SOURCE=torchhub (DINOv3): the DINOv3 repo's
+# hubconf.py eagerly imports segmentation eval code that pulls this in, even
+# though we only use the plain backbone entrypoint (dinov3_vits16).
+torchmetrics>=1.0
