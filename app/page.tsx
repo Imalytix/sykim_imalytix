@@ -268,26 +268,28 @@ export default function Home() {
               </div>
             </div>
 
-            {suspiciousRegions.length > 0 && previewUrl && (
+            {previewUrl && (
               <div className="mt-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
                 <p className="mb-5 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  상세 분석 — 의심 부위 ({suspiciousRegions.length})
+                  {suspiciousRegions.length > 0 ? `상세 분석 — 의심 부위 (${suspiciousRegions.length})` : "분석한 이미지"}
                 </p>
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div className={suspiciousRegions.length > 0 ? "grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]" : ""}>
                   <ImageCanvasWithBoxes
                     imageUrl={previewUrl}
                     regions={suspiciousRegions}
                     selectedIndex={selectedRegionIndex}
                     onSelectRegion={setSelectedRegionIndex}
                   />
-                  <div className="space-y-5">
-                    <RegionDetailPanel region={suspiciousRegions[selectedRegionIndex]} regionIndex={selectedRegionIndex} />
-                    <SuspiciousRegionList
-                      regions={suspiciousRegions}
-                      selectedIndex={selectedRegionIndex}
-                      onSelectRegion={setSelectedRegionIndex}
-                    />
-                  </div>
+                  {suspiciousRegions.length > 0 && (
+                    <div className="space-y-5">
+                      <RegionDetailPanel region={suspiciousRegions[selectedRegionIndex]} regionIndex={selectedRegionIndex} />
+                      <SuspiciousRegionList
+                        regions={suspiciousRegions}
+                        selectedIndex={selectedRegionIndex}
+                        onSelectRegion={setSelectedRegionIndex}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -18,7 +18,7 @@
 | 6 | pgvector 스키마 + K 스윕 | 🟡 부분 완료 | Supabase 프로젝트 생성 완료, `images` 테이블 + pHash Hamming distance 검색(`find_similar_images`) 구현·실사용 테스트 완료. **embedding(pgvector) 컬럼은 자리만 만들어둠 — DINO 임베딩 kNN 연동은 미착수** |
 | 7 | Google Vision API 키 발급 | 🔴 **보류 (사용자 지시)** | 발급 방법만 안내, 실제 키 발급/연동은 사용자가 먼저 진행하기 전까지 미착수 |
 | 8 | 3단계 파이프라인 오케스트레이션 (pHash→pgvector→Vision) | 🟡 1/3 완료 | pHash 단계만 구현·연동됨 (`lib/db/imageRecords.ts` → `lib/analysis/pipeline.ts`). pgvector·Vision 단계는 미착수 |
-| 9 | LLM 연동 | 🟢 결정 완료 — 기존 구조 유지 | LLM은 판정 모듈로 계속 사용, DINO는 추가 신호로 병행 예정 (아래 참고) |
+| 9 | LLM 연동 | 🟢 완료 (2026-07-22) | DINO를 4번째 `vision_results` 신호로 실연동·실사용 테스트 완료. `ml/serve.py`(상주 추론 서버, 요청당 23초 걸리던 콜드스타트 문제 해결) + `lib/analysis/dino.ts`. **로컬 전용** — 서비스 실행 중엔 `python ml/serve.py`가 별도로 떠있어야 함, Vercel 등 배포 환경 대응은 미착수. 상세: `docs/DINO_AND_STORAGE_INTEGRATION.md` |
 | 10 | 모듈 A 성능 벤치마크 | 🟡 1차 수치 나옴 | 4번 항목 참고. 생성기 다양화 전이라 정식 벤치마크로 보기엔 이름 |
 
 🔴 승인 게이트(정지 중) · 🟠 결정 필요(정지 중) · 🟡 진행 중 · 🟢 완료 · ⚪ 미착수

@@ -96,3 +96,43 @@ as $$
   order by distance asc
   limit p_limit;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- request_logs — 요청 로그(누가/언제/어디서/무엇을/결과)를 Supabase에도 남김.
+--
+-- lib/logging/analysisLogger.ts는 원래 로컬 파일(storage/logs/*.jsonl)에만
+-- 기록했는데, Vercel 서버리스는 로컬 디스크가 요청 사이에 휘발되기 때문에
+-- 배포하면 로그가 남지 않는 문제가 있었습니다. 이 테이블이 그 문제를 해결하는
+-- "진짜" 로그 저장소이고, 로컬 파일은 이제 빠른 로컬 디버깅용 보조 수단입니다.
+--
+-- images 테이블과 달리 여기는 bit(64) 같은 특수 타입이 없어서(전부 text/
+-- jsonb/numeric) RPC 함수 없이 supabase-js의 `.from('request_logs').insert()`
+-- 로 바로 넣습니다 — images 테이블에서 RPC 함수가 필요했던 이유(bit 타입
+-- 직렬화 문제)가 애초에 여기엔 없기 때문입니다.
+-- ---------------------------------------------------------------------------
+create table if not exists request_logs (
+  id bigint generated always as identity primary key,
+  request_timestamp timestamptz not null,
+  request_id text not null,
+  status text not null,
+  duration_ms integer,
+  ip text,
+  user_agent text,
+  origin text,
+  referer text,
+  input_type text,
+  mode text,
+  source_url text,
+  filename text,
+  image_path text,
+  phash text,
+  final_result jsonb,
+  providers jsonb,
+  metadata_score numeric,
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+comment on table request_logs is 'analysisLogger.ts가 매 분석 요청마다 남기는 로그 — 로컬 storage/logs/*.jsonl과 동일한 내용을 클라우드에도 보관.';
+
+alter table request_logs enable row level security;

@@ -30,6 +30,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: "OpenAI",
   gemini: "Gemini",
   claude: "Claude",
+  dino: "DINOv3",
 };
 
 function providerDisplayName(provider: string): string {

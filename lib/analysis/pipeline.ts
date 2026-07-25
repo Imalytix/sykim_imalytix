@@ -8,6 +8,7 @@ import { aggregateAnalysis } from "./aggregator";
 import { analyzeWithOpenAI } from "@/lib/vision/openai";
 import { analyzeWithGemini } from "@/lib/vision/gemini";
 import { analyzeWithClaude } from "@/lib/vision/anthropic";
+import { analyzeWithDino } from "./dino";
 import { saveAnalyzedImage } from "@/lib/storage/imageStore";
 import { findSimilarImages, insertImageRecord } from "@/lib/db/imageRecords";
 
@@ -80,6 +81,10 @@ export async function analyzeImageBytes(params: {
   if (routing.call_openai) providerCalls.push(analyzeWithOpenAI(preprocessed.buffer, "image/jpeg", routing.prompt_type));
   if (routing.call_gemini) providerCalls.push(analyzeWithGemini(preprocessed.buffer, "image/jpeg", routing.prompt_type));
   if (routing.call_claude) providerCalls.push(analyzeWithClaude(preprocessed.buffer, "image/jpeg", routing.prompt_type));
+  // Opt-in (not opt-out): unlike the LLMs, a missing DINO service fails via a
+  // 10s timeout per call (see dino.ts), which would tax every request if it
+  // were on by default in an environment where ml/serve.py isn't running.
+  if (process.env.IMALYTIX_ENABLE_DINO === "true") providerCalls.push(analyzeWithDino(preprocessed.buffer));
 
   const visionResults = providerCalls.length > 0 ? await Promise.all(providerCalls) : [];
 

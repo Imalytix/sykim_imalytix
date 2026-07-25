@@ -25,7 +25,7 @@ export interface SuspiciousRegion {
 export type ContentType = "face" | "body" | "animal" | "landscape" | "object" | "text" | "other";
 
 export interface VisionResult {
-  provider: "openai" | "gemini" | "claude";
+  provider: "openai" | "gemini" | "claude" | "dino";
   model_name?: string;
   is_ai_generated: boolean | null;
   score: number;
