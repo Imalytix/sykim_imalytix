@@ -156,7 +156,15 @@ def embedding_dim() -> int:
         model, _ = _lazy_load_torchhub()
         dummy_out = model(torch.zeros(1, 3, 224, 224, device=_device))
         if isinstance(dummy_out, dict):
-            dummy_out = dummy_out.get("x_norm_clstoken") or dummy_out.get("cls_token")
+            for key in ("x_norm_clstoken", "cls_token"):
+                if key in dummy_out:
+                    dummy_out = dummy_out[key]
+                    break
+            else:
+                raise RuntimeError(
+                    f"예상치 못한 모델 출력 형태(dict, keys={list(dummy_out.keys())}). "
+                    "ml/DINOV3_SETUP.md의 '출력 형태가 다르면' 절 참고."
+                )
         return dummy_out.shape[-1]
     _, model = _lazy_load_hf()
     return model.config.hidden_size

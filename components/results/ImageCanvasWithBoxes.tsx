@@ -23,8 +23,8 @@ export default function ImageCanvasWithBoxes({ imageUrl, regions, selectedIndex,
   );
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-      <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+    <div className="rounded-2xl border border-white/9 bg-white/[0.04] p-3">
+      <div className="relative overflow-hidden rounded-lg border border-white/8 bg-black/20">
         <img
           src={imageUrl}
           alt="분석 대상 이미지"
@@ -52,7 +52,7 @@ export default function ImageCanvasWithBoxes({ imageUrl, regions, selectedIndex,
                   className={clsx(
                     "absolute rounded-lg border transition",
                     tone,
-                    selected ? "ring-2 ring-slate-950/70" : "ring-1 ring-white/20 hover:ring-white/50",
+                    selected ? "ring-2 ring-[#60a5fa]/80" : "ring-1 ring-white/20 hover:ring-white/50",
                   )}
                   style={{
                     left: `${bbox.x1 * 100}%`,
@@ -61,7 +61,7 @@ export default function ImageCanvasWithBoxes({ imageUrl, regions, selectedIndex,
                     height: `${(bbox.y2 - bbox.y1) * 100}%`,
                   }}
                 >
-                  <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-900">
+                  <span className="absolute left-2 top-2 rounded-full bg-black/80 px-2 py-1 text-[11px] font-semibold text-[#f4f4f6]">
                     {index + 1}
                   </span>
                 </button>

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:dataset": "node scripts/generate-test-dataset.js",
-    "test:perf": "node scripts/run-perf-test.js"
+    "test:perf": "node scripts/run-perf-test.js",
+    "inspect:png": "node scripts/inspect-png-chunks.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

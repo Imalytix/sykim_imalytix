@@ -19,8 +19,14 @@ export async function preprocessImage(
   const image = sharp(inputBuffer, { failOn: "none" }).rotate(); // rotate() with no args = auto-orient from EXIF, then strips it
   const metadata = await image.metadata();
 
-  const width = metadata.width ?? 0;
-  const height = metadata.height ?? 0;
+  // metadata.width/height ignore EXIF orientation (sharp's own docs say so);
+  // .rotate() above *does* apply it, so for a 90°/270°-rotated photo the
+  // pipeline's actual axes are swapped relative to these. metadata.autoOrient
+  // gives the post-rotation dimensions instead, which is what "longest side"
+  // needs to mean here — otherwise resize() constrains the wrong axis and
+  // the true long side can end up larger than `longSide`.
+  const width = metadata.autoOrient?.width ?? metadata.width ?? 0;
+  const height = metadata.autoOrient?.height ?? metadata.height ?? 0;
   const longestSide = Math.max(width, height);
 
   let pipeline = image.flatten({ background: { r: 255, g: 255, b: 255 } });

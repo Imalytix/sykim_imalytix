@@ -1,8 +1,9 @@
 import { GoogleGenAI, createPartFromBase64, createPartFromText } from "@google/genai";
-import type { VisionResult } from "@/types/analysis";
+import type { UsageInfo, VisionResult } from "@/types/analysis";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
-import { describeProviderError } from "./errorMessage";
+import { classifyProviderError } from "./errorMessage";
+import { estimateCostUsd } from "./pricing";
 
 export async function analyzeWithGemini(
   imageBuffer: Buffer,
@@ -13,7 +14,11 @@ export async function analyzeWithGemini(
   const modelName = process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash";
 
   if (!apiKey) {
-    return normalizeModelResult(null, "gemini", modelName, { errorMessage: "GEMINI_API_KEY가 설정되지 않았습니다." });
+    return normalizeModelResult(null, "gemini", modelName, {
+      errorMessage: "GEMINI_API_KEY가 설정되지 않았습니다.",
+      errorCategory: "missing_api_key",
+      isMock: true,
+    });
   }
 
   const imageType = await detectImageType(imageBuffer);
@@ -21,7 +26,9 @@ export async function analyzeWithGemini(
 
   const client = new GoogleGenAI({ apiKey });
 
+  const startedAt = Date.now();
   let text = "";
+  let usage: UsageInfo | null = null;
   try {
     const response = await client.models.generateContent({
       model: modelName,
@@ -38,14 +45,32 @@ export async function analyzeWithGemini(
       },
     });
     text = response.text ?? "";
+    const inputTokens = response.usageMetadata?.promptTokenCount ?? null;
+    const outputTokens = response.usageMetadata?.candidatesTokenCount ?? null;
+    if (inputTokens !== null || outputTokens !== null) {
+      usage = { input_tokens: inputTokens, output_tokens: outputTokens, cost_usd: estimateCostUsd(modelName, inputTokens, outputTokens) };
+    }
   } catch (error) {
-    return normalizeModelResult(null, "gemini", modelName, { errorMessage: describeProviderError(error, "Gemini") });
+    const classified = classifyProviderError(error, "Gemini");
+    return normalizeModelResult(null, "gemini", modelName, {
+      errorMessage: classified.message,
+      errorCategory: classified.category,
+      isMock: true,
+      latencyMs: Date.now() - startedAt,
+    });
   }
+  const latencyMs = Date.now() - startedAt;
 
   if (!text) {
-    return normalizeModelResult(null, "gemini", modelName, { errorMessage: "Gemini 응답 텍스트가 없습니다." });
+    return normalizeModelResult(null, "gemini", modelName, {
+      errorMessage: "Gemini 응답 텍스트가 없습니다.",
+      errorCategory: "empty_response",
+      isMock: true,
+      latencyMs,
+      usage,
+    });
   }
 
   const parsed = extractJsonObject(text);
-  return normalizeModelResult(parsed ?? text, "gemini", modelName);
+  return normalizeModelResult(parsed ?? text, "gemini", modelName, { latencyMs, usage });
 }

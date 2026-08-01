@@ -1,10 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/client";
 
-const STORAGE_ROOT = path.join(process.cwd(), "storage");
-const UPLOADS_DIR = path.join(STORAGE_ROOT, "uploads");
 const BUCKET_NAME = "analyzed-images";
 
 function todayFolder(): string {
@@ -55,35 +51,16 @@ async function saveToSupabase(requestId: string, buffer: Buffer): Promise<string
   }
 }
 
-async function saveToLocalDisk(requestId: string, buffer: Buffer): Promise<string | null> {
-  try {
-    const dayDir = path.join(UPLOADS_DIR, todayFolder());
-    await mkdir(dayDir, { recursive: true });
-    const filePath = path.join(dayDir, `${requestId}.jpg`);
-    await writeFile(filePath, buffer);
-    return path.relative(process.cwd(), filePath).replace(/\\/g, "/");
-  } catch (error) {
-    console.error("[imageStore] 로컬 디스크 저장 실패", requestId, error);
-    return null;
-  }
-}
-
 /**
- * Persists the normalized image that was actually analyzed, keyed by request_id.
- *
- * Supabase Storage is the primary target when configured (SUPABASE_URL +
- * SUPABASE_SERVICE_ROLE_KEY) — this is what makes the image survive on
- * Vercel, where the local filesystem is wiped between invocations. Local
- * disk is only a fallback for running without Supabase configured at all
- * (e.g. a fresh clone before `supabase/schema.sql` / bucket setup is done).
- *
- * Returns a storage-agnostic path string (either `supabase://bucket/key` or
- * a project-relative local path) — callers should treat storage as
- * best-effort and never fail analysis because a save didn't work (both
- * paths return null on failure rather than throwing).
+ * Persists the normalized image that was actually analyzed, keyed by
+ * request_id — Supabase Storage only (SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+ * required). No local-disk fallback: this project's storage of record is
+ * Supabase, and a local `storage/uploads/` copy would just be a second thing
+ * to keep in sync (and still wouldn't survive Vercel's wiped-between-
+ * invocations filesystem anyway). If Supabase isn't configured or the
+ * upload fails, this returns null — best-effort, same posture as the rest
+ * of this pipeline: a storage miss must never fail the analysis itself.
  */
 export async function saveAnalyzedImage(requestId: string, buffer: Buffer): Promise<string | null> {
-  const supabasePath = await saveToSupabase(requestId, buffer);
-  if (supabasePath) return supabasePath;
-  return saveToLocalDisk(requestId, buffer);
+  return saveToSupabase(requestId, buffer);
 }

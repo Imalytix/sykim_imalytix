@@ -1,16 +1,16 @@
 import sharp from "sharp";
-import type { AnalysisResult } from "@/types/analysis";
+import type { AnalysisResult, SimilarImageMatch, VisionResult } from "@/types/analysis";
 import { preprocessImage } from "@/lib/image/preprocess";
 import { generatePHash } from "./phash";
 import { analyzeMetadata } from "./metadata";
 import { decideRouting } from "./router";
-import { aggregateAnalysis } from "./aggregator";
+import { aggregateAnalysis, buildDuplicateAggregateResult, type AggregateResult } from "./aggregator";
 import { analyzeWithOpenAI } from "@/lib/vision/openai";
 import { analyzeWithGemini } from "@/lib/vision/gemini";
 import { analyzeWithClaude } from "@/lib/vision/anthropic";
-import { analyzeWithDino } from "./dino";
+import { analyzeWithDino, type DinoOutcome } from "./dino";
 import { saveAnalyzedImage } from "@/lib/storage/imageStore";
-import { findSimilarImages, insertImageRecord } from "@/lib/db/imageRecords";
+import { findSimilarByEmbedding, findSimilarImages, insertImageRecord } from "@/lib/db/imageRecords";
 
 export type AnalysisMode = "quick" | "standard" | "deep";
 
@@ -31,6 +31,27 @@ export function makeRequestId(): string {
 }
 
 export class ImageValidationError extends Error {}
+
+// The client-declared filename/extension/Content-Type are never trusted —
+// they're trivially spoofable (rename a .exe to .jpg, or lie in the
+// multipart Content-Type part). The only trustworthy check is what sharp's
+// libvips actually decodes from the real bytes (chunk/magic-number level
+// parsing), so this allowlist is enforced against `originalMeta.format`
+// *after* a successful decode, not against anything the client sent. This
+// also narrows accepted formats to the three advertised in the UI — sharp
+// itself can decode several more (gif/avif/tiff/heif/svg depending on the
+// libvips build), which would otherwise be silently accepted too.
+const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
+
+// pHash Hamming distance (out of 64 bits) at/under which two images are
+// treated as "the same photo" (re-save/re-compression/minor resize), not
+// merely similar — tight enough that visually-similar-but-distinct photos
+// (which tend to land around distance 8-10) shouldn't trigger this. When
+// matched, the LLM/DINO calls are skipped entirely and the earlier image's
+// stored verdict is reused (see buildDuplicateAggregateResult) — heuristic,
+// not yet calibrated against a real duplicate-vs-distinct distance
+// distribution (same caveat as schema.sql's embedding-distance default).
+const EXACT_DUPLICATE_PHASH_DISTANCE = 3;
 
 export interface AnalyzeOutcome {
   result: AnalysisResult;
@@ -58,6 +79,18 @@ export async function analyzeImageBytes(params: {
     throw new ImageValidationError("이미지를 읽을 수 없습니다. 지원되는 형식(JPEG/PNG/WEBP)인지 확인해주세요.");
   }
 
+  if (!originalMeta.format || !ALLOWED_FORMATS.has(originalMeta.format)) {
+    throw new ImageValidationError(
+      `지원하지 않는 이미지 형식입니다 (감지된 형식: ${originalMeta.format ?? "알 수 없음"}). JPEG/PNG/WEBP만 지원합니다.`,
+    );
+  }
+
+  // originalMeta.width/height ignore EXIF orientation — for a rotated
+  // portrait photo they report the pre-rotation (visually landscape) axes.
+  // autoOrient reflects what the image actually looks like once displayed.
+  const reportedWidth = originalMeta.autoOrient?.width ?? originalMeta.width;
+  const reportedHeight = originalMeta.autoOrient?.height ?? originalMeta.height;
+
   const mimeType = FORMAT_TO_MIME[originalMeta.format ?? ""] ?? "application/octet-stream";
   const isPng = originalMeta.format === "png";
 
@@ -65,39 +98,96 @@ export async function analyzeImageBytes(params: {
   const preprocessed = await preprocessImage(imageBytes, longSide);
   const phash = await generatePHash(preprocessed.buffer);
 
-  // Kicked off alongside metadata/vision analysis — independent of both, and
-  // its result isn't needed until the response is assembled at the end.
-  const duplicateCheckPromise = findSimilarImages(phash);
+  // Awaited here (not fire-and-forget) — unlike before, the exact-duplicate
+  // fast path below needs this decided *before* choosing whether to call
+  // the LLMs/DINO at all, not just to enrich the response at the end.
+  //
+  // Requiring full_result (not just distance + a verdict) means the fast
+  // path only fires when there's an actual complete result to show — a
+  // pre-migration row (full_result NULL) falls through to a real analysis
+  // instead, which then populates full_result for that phash going forward.
+  // Otherwise a duplicate-of-a-duplicate chain could get stuck showing an
+  // empty "표시할 비전 모델 결과가 없습니다" section forever.
+  const phashMatches = await findSimilarImages(phash);
+  const exactDuplicate = phashMatches.find(
+    (m) => m.distance <= EXACT_DUPLICATE_PHASH_DISTANCE && m.is_ai_generated !== null && m.full_result,
+  );
 
-  const metadataResult = await analyzeMetadata(imageBytes, { sourceUrl, filename, isPng });
-
-  const routing = decideRouting(mode, metadataResult, {
-    openai: Boolean(process.env.OPENAI_API_KEY),
-    gemini: Boolean(process.env.GEMINI_API_KEY),
-    claude: Boolean(process.env.ANTHROPIC_API_KEY),
+  const metadataResult = await analyzeMetadata(imageBytes, {
+    sourceUrl,
+    filename,
+    isPng,
+    fileInfo: {
+      format: originalMeta.format ?? null,
+      width: reportedWidth,
+      height: reportedHeight,
+      size_bytes: imageBytes.length,
+      color_space: originalMeta.space ?? null,
+    },
   });
 
-  const providerCalls: Array<Promise<Awaited<ReturnType<typeof analyzeWithOpenAI>>>> = [];
-  if (routing.call_openai) providerCalls.push(analyzeWithOpenAI(preprocessed.buffer, "image/jpeg", routing.prompt_type));
-  if (routing.call_gemini) providerCalls.push(analyzeWithGemini(preprocessed.buffer, "image/jpeg", routing.prompt_type));
-  if (routing.call_claude) providerCalls.push(analyzeWithClaude(preprocessed.buffer, "image/jpeg", routing.prompt_type));
-  // Opt-in (not opt-out): unlike the LLMs, a missing DINO service fails via a
-  // 10s timeout per call (see dino.ts), which would tax every request if it
-  // were on by default in an environment where ml/serve.py isn't running.
-  if (process.env.IMALYTIX_ENABLE_DINO === "true") providerCalls.push(analyzeWithDino(preprocessed.buffer));
+  let visionResults: VisionResult[] = [];
+  let dinoEmbedding: number[] | null = null;
+  let similarMatches: SimilarImageMatch[] = phashMatches;
+  let aggregateResult: AggregateResult;
 
-  const visionResults = providerCalls.length > 0 ? await Promise.all(providerCalls) : [];
+  if (exactDuplicate) {
+    // Same photo (re-save/re-compression/minor resize) already analyzed —
+    // reuse that earlier result wholesale (score AND the full provider/
+    // evidence/region breakdown) instead of spending LLM/DINO calls to
+    // almost certainly reproduce the same answer on pixel-identical bytes.
+    const dup = buildDuplicateAggregateResult(exactDuplicate);
+    aggregateResult = dup.aggregate;
+    visionResults = dup.visionResults;
+  } else {
+    const routing = decideRouting(mode, metadataResult, {
+      openai: Boolean(process.env.OPENAI_API_KEY),
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+      claude: Boolean(process.env.ANTHROPIC_API_KEY),
+    });
 
-  const aggregateResult = aggregateAnalysis(metadataResult, visionResults);
+    const llmCalls: Array<Promise<Awaited<ReturnType<typeof analyzeWithOpenAI>>>> = [];
+    if (routing.call_openai) llmCalls.push(analyzeWithOpenAI(preprocessed.buffer, "image/jpeg", routing.prompt_type));
+    if (routing.call_gemini) llmCalls.push(analyzeWithGemini(preprocessed.buffer, "image/jpeg", routing.prompt_type));
+    if (routing.call_claude) llmCalls.push(analyzeWithClaude(preprocessed.buffer, "image/jpeg", routing.prompt_type));
 
-  // Best-effort local save of the exact (normalized) bytes that were analyzed —
+    // Opt-in (not opt-out): unlike the LLMs, a missing DINO service fails via
+    // a 10s timeout per call (see dino.ts), which would tax every request if
+    // it were on by default in an environment where ml/serve.py isn't
+    // running. Called separately from llmCalls (not pushed into the same
+    // array) because DINO returns a DinoOutcome (VisionResult + a raw
+    // embedding), not a bare VisionResult — the embedding is needed below
+    // for the pgvector fallback search and must not leak into
+    // vision_results/logs.
+    const dinoPromise: Promise<DinoOutcome | null> =
+      process.env.IMALYTIX_ENABLE_DINO === "true" ? analyzeWithDino(preprocessed.buffer) : Promise.resolve(null);
+
+    const [llmResults, dinoOutcome] = await Promise.all([
+      llmCalls.length > 0 ? Promise.all(llmCalls) : Promise.resolve([]),
+      dinoPromise,
+    ]);
+    visionResults = dinoOutcome ? [...llmResults, dinoOutcome.result] : llmResults;
+    dinoEmbedding = dinoOutcome?.embedding ?? null;
+
+    // Stage 2: only spend a second DB round-trip on the embedding kNN search
+    // when stage 1 (pHash) found nothing *and* this request actually has an
+    // embedding (DINO enabled + reachable) — most requests never reach this.
+    if (phashMatches.length === 0 && dinoEmbedding) {
+      similarMatches = await findSimilarByEmbedding(dinoEmbedding);
+    }
+
+    aggregateResult = aggregateAnalysis(metadataResult, visionResults, similarMatches);
+  }
+
+  // Best-effort save of the exact (normalized) bytes that were analyzed —
   // never let a storage failure fail the analysis itself.
   const imagePath = await saveAnalyzedImage(requestId, preprocessed.buffer);
 
-  const similarMatches = await duplicateCheckPromise;
   const duplicateCheck = {
     checked: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
     matches: similarMatches,
+    used_cached_result: Boolean(exactDuplicate),
+    influenced_score: aggregateResult.used_similar_match,
   };
 
   const result: AnalysisResult = {
@@ -107,10 +197,11 @@ export async function analyzeImageBytes(params: {
     input: {
       type: inputType,
       mime_type: mimeType,
-      width: originalMeta.width,
-      height: originalMeta.height,
+      width: reportedWidth,
+      height: reportedHeight,
       phash,
     },
+    analyzed_image_data_url: preprocessed.dataUrl,
     final_result: aggregateResult.final_result,
     metadata_analysis: metadataResult,
     vision_results: visionResults,
@@ -126,6 +217,13 @@ export async function analyzeImageBytes(params: {
     duplicate_check: duplicateCheck,
   };
 
+  // Propagate the cached full_result forward on a duplicate hit (rather than
+  // storing null) so a *third* upload of the same phash still finds a usable
+  // result — otherwise the very first fast-path row would dead-end the chain.
+  const fullResultToStore = exactDuplicate
+    ? exactDuplicate.full_result
+    : { vision_results: visionResults, evidence_summary: aggregateResult.evidence_summary, suspicious_regions: aggregateResult.suspicious_regions };
+
   // Best-effort — record this analysis so future requests can be compared
   // against it. Never let a DB hiccup fail the analysis itself.
   await insertImageRecord({
@@ -135,6 +233,8 @@ export async function analyzeImageBytes(params: {
     aiProbability: result.final_result.ai_probability,
     imagePath,
     mode,
+    embedding: dinoEmbedding,
+    fullResult: fullResultToStore,
   });
 
   return { result, imagePath };

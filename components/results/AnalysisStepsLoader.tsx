@@ -66,17 +66,20 @@ export default function AnalysisStepsLoader({ active, compact = false }: Analysi
   if (!active) return null;
 
   return (
-    <div className={`rounded-2xl border border-slate-100 bg-white ${compact ? "p-4" : "p-6"} shadow-sm`}>
+    <div className={`rounded-2xl border border-white/9 bg-white/[0.04] ${compact ? "p-4" : "p-6"}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900">분석 진행 현황</div>
-          <div className="mt-1 text-xs text-slate-500">이미지 검증, 메타데이터, 시각 근거를 순서대로 확인 중입니다.</div>
+          <div className="text-sm font-semibold text-[#f4f4f6]">분석 진행 현황</div>
+          <div className="mt-1 text-xs text-[#9a9aa4]">이미지 검증, 메타데이터, 시각 근거를 순서대로 확인 중입니다.</div>
         </div>
-        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{progress}%</div>
+        <div className="rounded-full bg-[#3b82f6]/15 px-3 py-1 text-xs font-semibold text-[#60a5fa]">{progress}%</div>
       </div>
 
-      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-slate-900 transition-all duration-300" style={{ width: `${progress}%` }} />
+      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] shadow-[0_0_18px_rgba(59,130,246,0.7)] transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
       </div>
 
       <ol className="mt-5 space-y-4">
@@ -87,28 +90,28 @@ export default function AnalysisStepsLoader({ active, compact = false }: Analysi
 
           return (
             <li key={step.id} className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white">
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5">
                 {isDone ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <CheckCircle2 className="h-4 w-4 text-[#4ade80]" />
                 ) : isActive ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-900" />
+                  <Loader2 className="h-4 w-4 animate-spin text-[#60a5fa]" />
                 ) : (
-                  <span className="h-2 w-2 rounded-full bg-slate-200" />
+                  <span className="h-2 w-2 rounded-full bg-white/15" />
                 )}
               </div>
               <div className="min-w-0">
                 <div
                   className={
                     isDone
-                      ? "text-sm font-medium text-emerald-700"
+                      ? "text-sm font-medium text-[#86efac]"
                       : isActive
-                        ? "text-sm font-semibold text-slate-900"
-                        : "text-sm text-slate-400"
+                        ? "text-sm font-semibold text-[#f4f4f6]"
+                        : "text-sm text-[#6b6b76]"
                   }
                 >
                   {step.label}
                 </div>
-                <div className={`mt-0.5 text-xs ${isPending ? "text-slate-300" : "text-slate-500"}`}>{step.desc}</div>
+                <div className={`mt-0.5 text-xs ${isPending ? "text-[#4a4a54]" : "text-[#9a9aa4]"}`}>{step.desc}</div>
               </div>
             </li>
           );

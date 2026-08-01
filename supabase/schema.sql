@@ -7,8 +7,10 @@
 -- ---------
 -- pHash(64bit)는 bit(64) 타입으로 저장합니다. Hamming distance는 pgvector 없이도
 -- PostgreSQL 14+ 내장 함수 bit_count(a # b)로 계산 가능합니다(# = bitwise XOR).
--- 그래서 이 테이블은 pgvector 없이도 동작하지만, embedding 컬럼은 나중에 DINOv3
--- 임베딩(코사인 유사도 kNN)을 붙일 자리로 미리 만들어둡니다 — Module B 2단계.
+-- embedding 컬럼(DINOv3, 384차원)은 2026-07-25부터 실제로 채워집니다 — pHash로
+-- 동일/근접 중복이 안 잡힐 때만 폴백으로 쓰는 2단계 검색(find_similar_by_embedding,
+-- 아래 참고)이며, 1단계(find_similar_images, pHash)는 여전히 pgvector 없이도
+-- 동작합니다.
 --
 -- hex ↔ bit(64) 변환: bytea에는 bit로의 직접 캐스트가 없어서(Postgres에 그런
 -- 캐스트가 정의돼 있지 않음 — decode(hex,'hex')::bit(64)는 42846 에러),
@@ -28,18 +30,41 @@ create table if not exists images (
   ai_probability numeric(5, 2),
   image_path text,
   mode text,
+  -- { vision_results, evidence_summary, suspicious_regions } — the pieces of
+  -- an AnalysisResult that come from actually running the LLMs/DINO on this
+  -- image. Lets a *future* exact-duplicate hit (see EXACT_DUPLICATE_PHASH_
+  -- DISTANCE in lib/analysis/pipeline.ts) display a genuinely complete
+  -- result — same provider breakdown, same suspicious-region boxes — instead
+  -- of just the bare final score. NULL for rows inserted before this column
+  -- existed; pipeline.ts treats those as "no usable cached result" and runs
+  -- a fresh analysis rather than showing an empty duplicate result, which
+  -- self-heals old rows the next time their phash is re-uploaded.
+  full_result jsonb,
   created_at timestamptz not null default now()
 );
 
+-- `create table if not exists` above only fires on a brand-new database —
+-- an `images` table created before 2026-08-01 already exists without this
+-- column, and `if not exists` doesn't retroactively add columns. This line
+-- is what actually applies the change when re-running this file against an
+-- existing database (safe to run repeatedly either way). Must run BEFORE
+-- the `comment on column images.full_result` below — commenting on a column
+-- that doesn't exist yet errors with 42703.
+alter table images add column if not exists full_result jsonb;
+
 comment on table images is 'Imalytix 분석 요청마다 1행 — pHash 중복/유사 탐지 및 (예정) DINO 임베딩 kNN용.';
 comment on column images.phash is '64bit perceptual hash (lib/analysis/phash.ts generatePHash 출력, hex 16자리를 bit로 저장).';
-comment on column images.embedding is 'DINOv3 임베딩 자리 — extract_embeddings.py 연동 전까지는 NULL.';
+comment on column images.embedding is 'DINOv3 임베딩(384차원) — ml/serve.py의 /infer 응답에서 받아 저장. IMALYTIX_ENABLE_DINO=false였거나 추론 서버 호출이 실패한 요청은 NULL.';
+comment on column images.full_result is 'vision_results/evidence_summary/suspicious_regions — 동일 이미지 재업로드 시 전체 결과를 재구성하는 데 사용(lib/analysis/aggregator.ts의 buildDuplicateAggregateResult 참고).';
 
 -- RLS 활성화: anon/authenticated 키로는 접근 불가, service_role 키만 사용
 -- (service_role은 RLS를 우회하므로 별도 policy 불필요 — 서버 사이드 전용 테이블).
 alter table images enable row level security;
 
 -- 삽입: 64자리 '0'/'1' 이진 문자열을 받아 bit(64)로 저장. request_id 중복 시 무시(재시도 안전).
+-- p_embedding은 선택 인자(기본 null) — DINO가 꺼져 있거나(IMALYTIX_ENABLE_DINO=false)
+-- 추론 서버 호출이 실패한 요청은 임베딩 없이(NULL) 기록되고, pHash 중복탐지에는
+-- 영향이 없습니다. 기존 호출부(embedding을 안 넘기던 코드)와도 호환됩니다.
 create or replace function insert_image_record(
   p_request_id text,
   p_phash_bits text,
@@ -47,11 +72,13 @@ create or replace function insert_image_record(
   p_is_ai_generated boolean,
   p_ai_probability numeric,
   p_image_path text,
-  p_mode text
+  p_mode text,
+  p_embedding vector(384) default null,
+  p_full_result jsonb default null
 ) returns void
 language sql
 as $$
-  insert into images (request_id, phash, category, is_ai_generated, ai_probability, image_path, mode)
+  insert into images (request_id, phash, category, is_ai_generated, ai_probability, image_path, mode, embedding, full_result)
   values (
     p_request_id,
     p_phash_bits::bit(64),
@@ -59,7 +86,9 @@ as $$
     p_is_ai_generated,
     p_ai_probability,
     p_image_path,
-    p_mode
+    p_mode,
+    p_embedding,
+    p_full_result
   )
   on conflict (request_id) do nothing;
 $$;
@@ -69,6 +98,12 @@ $$;
 --   0        완전 동일 (재업로드/무편집)
 --   1~5      사실상 동일 (재압축/리사이즈/색 보정 수준의 경미한 편집)
 --   6~10     느슨하게 유사 (구도가 비슷하거나 일부만 편집) — 참고용, 단독 판정 근거 아님
+--
+-- `create or replace function`은 반환 타입(RETURNS TABLE의 컬럼 구성)을 바꾸는 건
+-- 허용하지 않습니다(42P13 에러) — full_result 컬럼을 추가했으므로 기존 함수를
+-- 먼저 지워야 합니다. 함수가 없으면 조용히 넘어갑니다.
+drop function if exists find_similar_images(text, int, int);
+
 create or replace function find_similar_images(
   p_phash_bits text,
   p_max_distance int default 10,
@@ -79,7 +114,8 @@ create or replace function find_similar_images(
   is_ai_generated boolean,
   ai_probability numeric,
   image_path text,
-  created_at timestamptz
+  created_at timestamptz,
+  full_result jsonb
 )
 language sql
 stable
@@ -90,9 +126,60 @@ as $$
     images.is_ai_generated,
     images.ai_probability,
     images.image_path,
-    images.created_at
+    images.created_at,
+    images.full_result
   from images
   where bit_count(images.phash # p_phash_bits::bit(64)) <= p_max_distance
+  order by distance asc
+  limit p_limit;
+$$;
+
+-- HNSW 인덱스: pgvector의 근사 최근접 이웃(ANN) 인덱스. embedding이 NULL인 행은
+-- 자동으로 인덱스에서 제외됩니다(DINO가 꺼져 있던 시절 기록 등) — 별도 처리 불필요.
+-- vector_cosine_ops를 쓰는 이유는 아래 find_similar_by_embedding이 코사인 거리
+-- (<=>)로 검색하기 때문 — 인덱스의 거리 연산자와 쿼리의 거리 연산자가 일치해야
+-- 인덱스가 실제로 사용됩니다.
+create index if not exists images_embedding_hnsw_idx
+  on images using hnsw (embedding vector_cosine_ops);
+
+-- 조회(2단계 폴백 전용): pHash Hamming distance로 매치가 안 나왔을 때만 호출됨
+-- (lib/analysis/pipeline.ts 참고). 코사인 거리(<=>, 0=완전 동일 방향 ~ 2=정반대)가
+-- p_max_distance 이하인 이미지를 가까운 순으로 반환. pHash와 달리 "픽셀이 비슷한"
+-- 게 아니라 "DINOv3가 의미적으로 비슷하다고 본" 이미지를 찾는 것이라 임계값의
+-- 의미가 다릅니다 — 처음엔 보수적으로(0.15 안팎, 즉 매우 가까운 것만) 시작해서
+-- 실측 분포를 보고 재보정하는 걸 권장합니다(리포트의 "pHash 임계값 실데이터
+-- 재보정 미착수" 항목과 같은 종류의 튜닝 작업).
+--
+-- find_similar_images와 같은 이유로 반환 타입 변경 전 DROP 필요(42P13).
+drop function if exists find_similar_by_embedding(vector(384), float, int);
+
+create or replace function find_similar_by_embedding(
+  p_embedding vector(384),
+  p_max_distance float default 0.15,
+  p_limit int default 20
+) returns table (
+  request_id text,
+  distance float,
+  is_ai_generated boolean,
+  ai_probability numeric,
+  image_path text,
+  created_at timestamptz,
+  full_result jsonb
+)
+language sql
+stable
+as $$
+  select
+    images.request_id,
+    images.embedding <=> p_embedding as distance,
+    images.is_ai_generated,
+    images.ai_probability,
+    images.image_path,
+    images.created_at,
+    images.full_result
+  from images
+  where images.embedding is not null
+    and images.embedding <=> p_embedding <= p_max_distance
   order by distance asc
   limit p_limit;
 $$;

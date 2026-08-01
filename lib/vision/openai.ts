@@ -1,8 +1,9 @@
 import OpenAI from "openai";
-import type { VisionResult } from "@/types/analysis";
+import type { UsageInfo, VisionResult } from "@/types/analysis";
 import { buildPrompt, detectImageType, QUICK_PROMPT, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
-import { describeProviderError } from "./errorMessage";
+import { classifyProviderError } from "./errorMessage";
+import { estimateCostUsd } from "./pricing";
 
 const REFUSAL_PATTERNS = ["i'm sorry", "i cannot", "i can't", "i am unable", "as an ai", "sorry, i"];
 
@@ -10,7 +11,13 @@ function looksLikeRefusal(text: string): boolean {
   return !text || (REFUSAL_PATTERNS.some((p) => text.toLowerCase().includes(p)) && text.length < 300);
 }
 
-async function callOnce(client: OpenAI, modelName: string, prompt: string, dataUrl: string): Promise<string> {
+interface CallResult {
+  text: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
+async function callOnce(client: OpenAI, modelName: string, prompt: string, dataUrl: string): Promise<CallResult> {
   const response = await client.responses.create({
     model: modelName,
     input: [
@@ -23,7 +30,11 @@ async function callOnce(client: OpenAI, modelName: string, prompt: string, dataU
       },
     ],
   });
-  return response.output_text ?? "";
+  return {
+    text: response.output_text ?? "",
+    inputTokens: response.usage?.input_tokens ?? null,
+    outputTokens: response.usage?.output_tokens ?? null,
+  };
 }
 
 export async function analyzeWithOpenAI(
@@ -35,7 +46,11 @@ export async function analyzeWithOpenAI(
   const modelName = process.env.OPENAI_VISION_MODEL || "gpt-4o";
 
   if (!apiKey) {
-    return normalizeModelResult(null, "openai", modelName, { errorMessage: "OPENAI_API_KEY가 설정되지 않았습니다." });
+    return normalizeModelResult(null, "openai", modelName, {
+      errorMessage: "OPENAI_API_KEY가 설정되지 않았습니다.",
+      errorCategory: "missing_api_key",
+      isMock: true,
+    });
   }
 
   const imageType = await detectImageType(imageBuffer);
@@ -58,26 +73,69 @@ export async function analyzeWithOpenAI(
   // before giving up.
   const attempts = promptType === "quick" ? [QUICK_PROMPT, QUICK_PROMPT] : [standardPrompt, standardPrompt, QUICK_PROMPT];
 
+  // Latency covers the whole retry loop (all attempts), not just the last
+  // one — that's the actual wall-clock cost this provider imposed on the
+  // request, which is what a caller deciding "is OpenAI too slow" cares
+  // about. Token usage, on the other hand, accumulates per-attempt (each
+  // retry is a full billed call) — summed below rather than just kept from
+  // the last attempt, since a 3-attempt refusal-retry genuinely costs 3x.
+  const startedAt = Date.now();
   let text = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let sawUsage = false;
   for (const attemptPrompt of attempts) {
     try {
-      text = await callOnce(client, modelName, attemptPrompt, dataUrl);
+      const attempt = await callOnce(client, modelName, attemptPrompt, dataUrl);
+      text = attempt.text;
+      if (attempt.inputTokens !== null) {
+        inputTokens += attempt.inputTokens;
+        sawUsage = true;
+      }
+      if (attempt.outputTokens !== null) {
+        outputTokens += attempt.outputTokens;
+        sawUsage = true;
+      }
     } catch (error) {
-      return normalizeModelResult(null, "openai", modelName, { errorMessage: describeProviderError(error, "OpenAI") });
+      const classified = classifyProviderError(error, "OpenAI");
+      return normalizeModelResult(null, "openai", modelName, {
+        errorMessage: classified.message,
+        errorCategory: classified.category,
+        isMock: true,
+        latencyMs: Date.now() - startedAt,
+      });
     }
     if (!looksLikeRefusal(text)) break;
   }
+  const latencyMs = Date.now() - startedAt;
+  const usage: UsageInfo | null = sawUsage
+    ? {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cost_usd: estimateCostUsd(modelName, inputTokens, outputTokens),
+      }
+    : null;
 
   if (!text) {
-    return normalizeModelResult(null, "openai", modelName, { errorMessage: "OpenAI 응답 텍스트가 없습니다." });
+    return normalizeModelResult(null, "openai", modelName, {
+      errorMessage: "OpenAI 응답 텍스트가 없습니다.",
+      errorCategory: "empty_response",
+      isMock: true,
+      latencyMs,
+      usage,
+    });
   }
 
   if (looksLikeRefusal(text)) {
     return normalizeModelResult(null, "openai", modelName, {
       errorMessage: "OpenAI가 요청을 분석할 수 없습니다. (콘텐츠 정책 — 여러 번 재시도했지만 계속 거절됨)",
+      errorCategory: "content_policy",
+      isMock: true,
+      latencyMs,
+      usage,
     });
   }
 
   const parsed = extractJsonObject(text);
-  return normalizeModelResult(parsed ?? text, "openai", modelName);
+  return normalizeModelResult(parsed ?? text, "openai", modelName, { latencyMs, usage });
 }

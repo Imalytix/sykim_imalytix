@@ -9,9 +9,9 @@ interface SuspiciousRegionListProps {
 }
 
 const severityTone: Record<"low" | "medium" | "high", string> = {
-  low: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  medium: "border-amber-200 bg-amber-50 text-amber-700",
-  high: "border-rose-200 bg-rose-50 text-rose-700",
+  low: "border-[#4ade80]/30 bg-[#4ade80]/15 text-[#86efac]",
+  medium: "border-amber-400/30 bg-amber-400/15 text-amber-300",
+  high: "border-[#f87171]/30 bg-[#f87171]/15 text-[#fca5a5]",
 };
 
 const severityLabel: Record<"low" | "medium" | "high", string> = {
@@ -29,23 +29,23 @@ export default function SuspiciousRegionList({ regions, selectedIndex, onSelectR
           type="button"
           onClick={() => onSelectRegion(index)}
           className={clsx(
-            "w-full rounded-2xl border p-4 text-left transition",
-            selectedIndex === index ? "border-slate-300 bg-white shadow-sm" : "border-slate-100 bg-white hover:border-slate-200",
+            "w-full rounded-xl border p-4 text-left transition",
+            selectedIndex === index ? "border-white/25 bg-white/[0.06]" : "border-white/8 bg-white/[0.03] hover:border-white/16",
           )}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-black/20 text-sm font-semibold text-[#f4f4f6]">
                 {index + 1}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-900">{region.label}</span>
+                  <span className="text-sm font-semibold text-[#f4f4f6]">{region.label}</span>
                   {!isValidBBox(region.bbox) && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-400">위치 정보 없음</span>
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-[#6b6b76]">위치 정보 없음</span>
                   )}
                 </div>
-                <div className="mt-1 text-xs text-slate-500">{region.description}</div>
+                <div className="mt-1 text-xs text-[#9a9aa4]">{region.description}</div>
               </div>
             </div>
             <span className={clsx("shrink-0 rounded-full border px-3 py-1 text-xs font-medium", severityTone[region.severity])}>

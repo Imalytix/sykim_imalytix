@@ -1,5 +1,6 @@
+import { inflateSync } from "node:zlib";
 import * as exifr from "exifr";
-import type { MetadataAnalysis } from "@/types/analysis";
+import type { CameraInfo, FileInfo, MetadataAnalysis } from "@/types/analysis";
 
 export const AI_SOFTWARE_KEYWORDS = [
   "midjourney",
@@ -32,6 +33,32 @@ function toText(value: unknown): string {
   return String(value);
 }
 
+/** EXIF ExposureTime is decimal seconds (e.g. 0.008333) — display as a
+ *  fraction (the conventional camera-settings format) when under a second. */
+function formatExposureTime(value: unknown): string | null {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  if (seconds >= 1) return `${seconds}s`;
+  return `1/${Math.round(1 / seconds)}s`;
+}
+
+function formatFNumber(value: unknown): string | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `ƒ${n}`;
+}
+
+/** exifr auto-converts EXIF date tags to JS Date instances; guard against
+ *  the raw string/invalid-date cases too since malformed EXIF isn't rare. */
+function formatCapturedAt(value: unknown): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  return null;
+}
+
 /** Reads PNG tEXt/iTXt chunks (ComfyUI/A1111 embed generation params here). */
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -57,13 +84,35 @@ function readPngTextChunks(buffer: Buffer): Record<string, string> {
       }
     } else if (type === "iTXt") {
       const chunkData = buffer.subarray(dataStart, dataEnd);
-      const nullIndex = chunkData.indexOf(0);
-      if (nullIndex >= 0) {
-        const key = chunkData.subarray(0, nullIndex).toString("latin1").toLowerCase();
-        // Skip compression flag, compression method, language tag, translated keyword —
-        // fall back to a best-effort UTF-8 decode of the remaining bytes.
-        const rest = chunkData.subarray(nullIndex + 1);
-        chunks[key] = rest.toString("utf-8").replace(/\0/g, "");
+      const keywordEnd = chunkData.indexOf(0);
+      if (keywordEnd >= 0) {
+        const key = chunkData.subarray(0, keywordEnd).toString("latin1").toLowerCase();
+        // iTXt layout after the keyword's null terminator:
+        //   compression flag (1B) | compression method (1B) |
+        //   language tag (null-terminated) | translated keyword (null-terminated) | text
+        // Tools that embed generation params sometimes zlib-compress this
+        // (compression flag = 1) — decoding the raw bytes as UTF-8 in that
+        // case yields garbage and silently loses the AI-tool evidence below.
+        const compressionFlag = chunkData[keywordEnd + 1];
+        const langStart = keywordEnd + 3; // skip flag + method bytes
+        const langEnd = chunkData.indexOf(0, langStart);
+        const translatedStart = langEnd >= 0 ? langEnd + 1 : langStart;
+        const translatedEnd = langEnd >= 0 ? chunkData.indexOf(0, translatedStart) : -1;
+        const textStart = translatedEnd >= 0 ? translatedEnd + 1 : translatedStart;
+        const textBytes = chunkData.subarray(textStart);
+
+        let text = "";
+        if (compressionFlag === 1) {
+          try {
+            text = inflateSync(textBytes).toString("utf-8");
+          } catch {
+            // Corrupt/partial compressed payload — skip rather than store garbage.
+            text = "";
+          }
+        } else {
+          text = textBytes.toString("utf-8").replace(/\0/g, "");
+        }
+        if (text) chunks[key] = text;
       }
     }
 
@@ -76,9 +125,16 @@ function readPngTextChunks(buffer: Buffer): Record<string, string> {
 
 export async function analyzeMetadata(
   imageBuffer: Buffer,
-  options: { sourceUrl?: string | null; filename?: string | null; isPng?: boolean } = {},
+  options: {
+    sourceUrl?: string | null;
+    filename?: string | null;
+    isPng?: boolean;
+    /** Passed in from pipeline.ts's already-decoded sharp metadata rather
+     *  than re-decoding the same bytes here a second time. */
+    fileInfo: FileInfo;
+  },
 ): Promise<MetadataAnalysis> {
-  const { sourceUrl, isPng } = options;
+  const { sourceUrl, isPng, fileInfo } = options;
 
   let exifFound = false;
   let pngMetadataFound = false;
@@ -106,13 +162,37 @@ export async function analyzeMetadata(
   let make = "";
   let model = "";
   let lensModel = "";
+  let capturedAt: string | null = null;
+  let exposureTime: string | null = null;
+  let fNumber: string | null = null;
+  let iso: number | null = null;
+  let hasGps = false;
   for (const [key, value] of Object.entries(exifData)) {
     const keyLower = key.toLowerCase();
     if (keyLower.includes("software")) software = toText(value);
     else if (keyLower.includes("lens")) lensModel = toText(value);
     else if (keyLower === "make") make = toText(value);
     else if (keyLower === "model") model = toText(value);
+    else if (keyLower === "datetimeoriginal" || (keyLower === "createdate" && !capturedAt)) capturedAt = formatCapturedAt(value) ?? capturedAt;
+    else if (keyLower === "exposuretime") exposureTime = formatExposureTime(value);
+    else if (keyLower === "fnumber") fNumber = formatFNumber(value);
+    else if (keyLower === "iso" || keyLower === "isospeedratings") iso = Number.isFinite(Number(value)) ? Number(value) : null;
+    else if (keyLower === "gpslatitude" || keyLower === "gpslongitude" || keyLower === "latitude" || keyLower === "longitude") hasGps = true;
   }
+
+  const cameraInfo: CameraInfo | null =
+    make || model || lensModel || capturedAt || exposureTime || fNumber || iso
+      ? {
+          make: make || null,
+          model: model || null,
+          lens_model: lensModel || null,
+          captured_at: capturedAt,
+          exposure_time: exposureTime,
+          f_number: fNumber,
+          iso,
+          has_gps: hasGps,
+        }
+      : null;
 
   if (software) {
     raw.software = software;
@@ -208,5 +288,7 @@ export async function analyzeMetadata(
     evidence,
     limitations,
     raw,
+    camera_info: cameraInfo,
+    file_info: fileInfo,
   };
 }

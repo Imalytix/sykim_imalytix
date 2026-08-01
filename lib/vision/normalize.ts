@@ -1,4 +1,4 @@
-import type { BBox, Evidence, SuspiciousRegion, VisionResult } from "@/types/analysis";
+import type { BBox, Evidence, SuspiciousRegion, UsageInfo, VisionResult } from "@/types/analysis";
 import type { VisionProvider } from "./prompts";
 
 export function extractJsonObject(text: string): Record<string, unknown> | null {
@@ -99,9 +99,15 @@ export function normalizeModelResult(
   rawResult: Record<string, unknown> | string | null,
   provider: VisionProvider,
   modelName: string,
-  options: { isMock?: boolean; errorMessage?: string | null } = {},
+  options: {
+    isMock?: boolean;
+    errorMessage?: string | null;
+    errorCategory?: string | null;
+    latencyMs?: number | null;
+    usage?: UsageInfo | null;
+  } = {},
 ): VisionResult {
-  const { isMock = false, errorMessage = null } = options;
+  const { isMock = false, errorMessage = null, errorCategory = null, latencyMs = null, usage = null } = options;
   let parsed: Record<string, unknown> | null = null;
   const rawResponse = rawResult;
 
@@ -121,6 +127,13 @@ export function normalizeModelResult(
       raw_response: rawResponse ?? undefined,
       is_mock: isMock,
       error_message: errorMessage,
+      // A JSON-parse failure on an otherwise-successful API call (200 with
+      // unparseable content) still gets a category so it's distinguishable
+      // in logs from a network/auth failure, unless the caller already
+      // classified this as something more specific (e.g. content_policy).
+      error_category: errorCategory ?? (errorMessage ? "parse_failure" : null),
+      latency_ms: latencyMs,
+      usage,
     };
   }
 
@@ -146,6 +159,9 @@ export function normalizeModelResult(
     raw_response: rawResponse ?? undefined,
     is_mock: isMock,
     error_message: errorMessage,
+    error_category: errorCategory,
+    latency_ms: latencyMs,
+    usage,
   };
 }
 

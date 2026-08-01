@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Imalytix</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="logo-mark">◉</div>
+      <div class="logo-text">imalytix</div>
+      <button id="settingsBtn" class="icon-btn" title="설정">⚙</button>
+    </header>
+
+    <div id="settingsPanel" class="settings-panel hidden">
+      <label for="apiBaseInput">분석 서버 주소</label>
+      <input id="apiBaseInput" type="text" placeholder="http://localhost:3000" />
+      <button id="saveSettingsBtn" class="btn btn-primary btn-block">저장</button>
+      <p class="hint">개발 버전은 로컬 서버(<code>npm run dev</code>)만 지원합니다. host_permissions에 없는 주소는 CORS로 막힙니다.</p>
+    </div>
+
+    <main id="main">
+      <div id="emptyState" class="empty-state">
+        <p class="empty-title">웹페이지의 이미지를 우클릭한 뒤<br />"Imalytix로 이 이미지 분석하기"를 선택하세요.</p>
+        <div class="divider"><span>또는</span></div>
+        <label for="urlInput" class="field-label">이미지 URL 직접 입력</label>
+        <input id="urlInput" type="url" placeholder="https://example.com/image.jpg" />
+        <button id="analyzeBtn" class="btn btn-primary btn-block">분석하기</button>
+      </div>
+
+      <div id="loadingState" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p>분석 중입니다…</p>
+      </div>
+
+      <div id="errorState" class="error-state hidden">
+        <p id="errorMessage"></p>
+        <button id="errorRetryBtn" class="btn btn-secondary btn-block">다시 시도</button>
+      </div>
+
+      <div id="resultState" class="result-state hidden">
+        <div class="preview-card">
+          <img id="previewImg" alt="분석 대상 이미지" />
+          <div class="preview-meta">
+            <div id="previewTitle" class="preview-title">이 이미지를 분석했습니다</div>
+            <div class="preview-sub">방금 전</div>
+          </div>
+        </div>
+
+        <div class="gauge-card">
+          <div class="gauge-wrap">
+            <svg width="180" height="180" viewBox="0 0 180 180" class="gauge-svg">
+              <circle id="gaugeTrack" cx="90" cy="90" r="74" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="13" />
+              <circle id="gaugeArc" cx="90" cy="90" r="74" fill="none" stroke="#a5adba" stroke-width="13" stroke-linecap="round" />
+            </svg>
+            <div class="gauge-center">
+              <div class="gauge-label">AI 생성 가능성</div>
+              <div id="gaugeScore" class="gauge-score">0%</div>
+              <div id="gaugeVerdict" class="gauge-verdict"></div>
+            </div>
+          </div>
+          <p id="gaugeSummary" class="gauge-summary"></p>
+        </div>
+
+        <div class="section">
+          <div class="section-title">핵심 결과</div>
+          <div id="keyFindings" class="key-findings"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">왜 이렇게 판단했나요?</div>
+          <ul id="reasonList" class="reason-list"></ul>
+        </div>
+
+        <div class="interp-card">
+          <div class="interp-head"><span class="interp-dot"></span>이 이미지를 어떻게 보면 좋을까요?</div>
+          <p id="interpText" class="interp-text"></p>
+        </div>
+
+        <div class="section">
+          <div class="section-title">상세 분석 — 비전 모델</div>
+          <div id="providerRows" class="provider-rows"></div>
+        </div>
+
+        <div class="section" id="metadataSection">
+          <div class="section-title">메타데이터</div>
+          <div id="metadataCard" class="meta-card"></div>
+        </div>
+
+        <div class="cta-row">
+          <button id="newAnalysisBtn" class="btn btn-primary btn-block">새 이미지 분석</button>
+        </div>
+      </div>
+    </main>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

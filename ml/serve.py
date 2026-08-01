@@ -26,7 +26,9 @@ Usage:
 엔드포인트:
     GET  /health  -> {"status": "ok", "embedding_dim": 384}
     POST /infer   -> 요청 바디에 이미지 바이트(raw)를 그대로 담아서 보내면
-                     {"ai_probability": 0.0123} 반환
+                     {"ai_probability": 0.0123, "embedding": [384개 float]} 반환
+                     (embedding은 Supabase pgvector 저장/유사 이미지 kNN 검색용 —
+                     Next.js lib/db/imageRecords.ts 참고)
 """
 from __future__ import annotations
 
@@ -93,7 +95,11 @@ class InferHandler(BaseHTTPRequestHandler):
 
             emb = embed_image(tmp_path)
             proba_ai = float(MODEL.predict_proba(emb.reshape(1, -1))[0, 1])
-            self._respond(200, {"ai_probability": round(proba_ai, 4)})
+            # Sent alongside the probability so the caller can store it for
+            # later kNN similarity search (pgvector) without a second
+            # inference pass — embed_image() already computed it, this is
+            # just serializing the same array to JSON.
+            self._respond(200, {"ai_probability": round(proba_ai, 4), "embedding": emb.tolist()})
         except Exception as exc:  # noqa: BLE001 — 요청 하나 실패로 서버 전체가 죽으면 안 됨
             self._respond(500, {"error": str(exc)})
         finally:

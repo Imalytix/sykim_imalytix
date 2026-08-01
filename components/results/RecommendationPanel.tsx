@@ -1,54 +1,32 @@
-import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
-
 interface RecommendationPanelProps {
   recommendedAction: string;
   limitations: string[];
   aiProbability: number;
 }
 
-function getIcon(score: number) {
-  if (score >= 80) return <ShieldAlert className="h-5 w-5 text-rose-500" />;
-  if (score >= 60) return <AlertTriangle className="h-5 w-5 text-amber-500" />;
-  if (score >= 31) return <Info className="h-5 w-5 text-sky-500" />;
-  return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
-}
-
-function getBgColor(score: number) {
-  if (score >= 80) return "bg-rose-50 border-rose-200";
-  if (score >= 60) return "bg-amber-50 border-amber-200";
-  if (score >= 31) return "bg-sky-50 border-sky-200";
-  return "bg-emerald-50 border-emerald-200";
-}
-
-function getTextColor(score: number) {
-  if (score >= 80) return "text-rose-800";
-  if (score >= 60) return "text-amber-800";
-  if (score >= 31) return "text-sky-800";
-  return "text-emerald-800";
-}
-
-export default function RecommendationPanel({ recommendedAction, limitations, aiProbability }: RecommendationPanelProps) {
+// aiProbability is accepted for API-compatibility with callers (page.tsx
+// passes scorePercent) but no longer changes styling — this "interpretation"
+// box stays a blue-accented card regardless of score (blue, not the
+// red/green tone used for the verdict itself, since this isn't a
+// danger/safe signal — it's neutral guidance).
+export default function RecommendationPanel({ recommendedAction, limitations }: RecommendationPanelProps) {
   return (
     <div className="space-y-4">
-      <div className={`rounded-2xl border p-5 ${getBgColor(aiProbability)}`}>
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 shrink-0">{getIcon(aiProbability)}</div>
-          <div>
-            <div className={`mb-1 text-xs font-semibold uppercase tracking-[0.2em] ${getTextColor(aiProbability)} opacity-70`}>
-              권고 사항
-            </div>
-            <p className={`text-sm leading-6 font-medium ${getTextColor(aiProbability)}`}>{recommendedAction}</p>
-          </div>
+      <div className="rounded-2xl border border-[#3b82f6]/40 bg-[#3b82f6]/10 p-[22px]">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#60a5fa]" />
+          <div className="text-[15px] font-bold tracking-tight text-[#f4f4f6]">이 이미지를 어떻게 보면 좋을까요?</div>
         </div>
+        <p className="mt-2.5 text-[13.5px] leading-7 text-[#d4d4d9]">{recommendedAction}</p>
       </div>
 
       {limitations.length > 0 && (
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">분석 한계</div>
+        <div className="rounded-2xl border border-white/9 bg-white/[0.04] p-5">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#6b6b76]">분석 한계</div>
           <ul className="space-y-2">
             {limitations.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm leading-6 text-slate-500">
-                <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+              <li key={i} className="flex items-start gap-2 text-sm leading-6 text-[#9a9aa4]">
+                <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-[#4a4a54]" />
                 {item}
               </li>
             ))}

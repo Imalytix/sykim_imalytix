@@ -1,14 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -23,11 +18,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="ko" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        {/* Pretendard — Korean UI typeface used across the design (no Latin
+            glyphs; Inter above covers numbers/Latin text and is listed second
+            in the font stack in globals.css). Not on Google Fonts, so loaded
+            from jsDelivr like the design mockup did. */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/static/pretendard.css"
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-[#0a0a0c] text-[#f4f4f6]">{children}</body>
     </html>
   );
 }

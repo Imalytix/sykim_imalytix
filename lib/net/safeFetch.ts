@@ -90,63 +90,78 @@ export async function safeFetchImage(url: string, maxBytes: number, timeoutMs: n
   for (let redirects = 0; ; redirects++) {
     await assertSafeUrl(currentUrl);
 
+    // One AbortController per hop, covering connect *and* body download —
+    // not just cleared once headers arrive. A slow/malicious server that
+    // accepts the connection immediately but trickles bytes below maxBytes
+    // could otherwise hold the request open indefinitely once past the
+    // headers stage, since the byte cap alone doesn't bound time.
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let response: Response;
+
     try {
-      response = await fetch(currentUrl, {
-        redirect: "manual",
-        headers: { "User-Agent": "Imalytix/0.1" },
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new SecurityViolationError(`이미지 다운로드 시간이 초과되었습니다 (${Math.round(timeoutMs / 1000)}초).`);
+      let response: Response;
+      try {
+        response = await fetch(currentUrl, {
+          redirect: "manual",
+          headers: { "User-Agent": "Imalytix/0.1" },
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new SecurityViolationError(`이미지 다운로드 시간이 초과되었습니다 (${Math.round(timeoutMs / 1000)}초).`);
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        throw new SecurityViolationError(`이미지 다운로드 실패: ${message}`);
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new SecurityViolationError(`이미지 다운로드 실패: ${message}`);
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        if (redirects >= 3) throw new SecurityViolationError("Redirect 횟수가 너무 많습니다.");
+        const location = response.headers.get("location");
+        if (!location) throw new SecurityViolationError("Redirect Location 헤더가 없습니다.");
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+
+      if (response.status >= 400) {
+        throw new SecurityViolationError(`이미지 다운로드 실패: HTTP ${response.status}`);
+      }
+
+      const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      if (contentType && !contentType.startsWith("image/")) {
+        throw new SecurityViolationError("이미지 Content-Type이 아닙니다.");
+      }
+
+      const contentLength = Number(response.headers.get("content-length") || 0);
+      if (contentLength > maxBytes) {
+        throw new SecurityViolationError("다운로드된 이미지가 너무 큽니다.");
+      }
+
+      if (!response.body) throw new SecurityViolationError("응답 본문이 없습니다.");
+
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          total += value.byteLength;
+          if (total > maxBytes) {
+            await reader.cancel();
+            throw new SecurityViolationError("다운로드된 이미지가 너무 큽니다.");
+          }
+          chunks.push(value);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new SecurityViolationError(`이미지 다운로드 시간이 초과되었습니다 (${Math.round(timeoutMs / 1000)}초).`);
+        }
+        throw error;
+      }
+
+      return { buffer: Buffer.concat(chunks), finalUrl: currentUrl, contentType };
     } finally {
       clearTimeout(timer);
     }
-
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      if (redirects >= 3) throw new SecurityViolationError("Redirect 횟수가 너무 많습니다.");
-      const location = response.headers.get("location");
-      if (!location) throw new SecurityViolationError("Redirect Location 헤더가 없습니다.");
-      currentUrl = new URL(location, currentUrl).toString();
-      continue;
-    }
-
-    if (response.status >= 400) {
-      throw new SecurityViolationError(`이미지 다운로드 실패: HTTP ${response.status}`);
-    }
-
-    const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-    if (contentType && !contentType.startsWith("image/")) {
-      throw new SecurityViolationError("이미지 Content-Type이 아닙니다.");
-    }
-
-    const contentLength = Number(response.headers.get("content-length") || 0);
-    if (contentLength > maxBytes) {
-      throw new SecurityViolationError("다운로드된 이미지가 너무 큽니다.");
-    }
-
-    if (!response.body) throw new SecurityViolationError("응답 본문이 없습니다.");
-
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > maxBytes) {
-        await reader.cancel();
-        throw new SecurityViolationError("다운로드된 이미지가 너무 큽니다.");
-      }
-      chunks.push(value);
-    }
-
-    return { buffer: Buffer.concat(chunks), finalUrl: currentUrl, contentType };
   }
 }
