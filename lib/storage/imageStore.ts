@@ -64,3 +64,62 @@ async function saveToSupabase(requestId: string, buffer: Buffer): Promise<string
 export async function saveAnalyzedImage(requestId: string, buffer: Buffer): Promise<string | null> {
   return saveToSupabase(requestId, buffer);
 }
+
+const STORAGE_URL_PREFIX = `supabase://${BUCKET_NAME}/`;
+
+/** Strips the `supabase://analyzed-images/` prefix saveToSupabase() adds,
+ *  back down to the raw object path createSignedUrl() expects. null for
+ *  anything that isn't one of our own storage paths (e.g. legacy rows, or
+ *  null image_url). */
+function toObjectPath(imageUrl: string | null): string | null {
+  if (!imageUrl || !imageUrl.startsWith(STORAGE_URL_PREFIX)) return null;
+  return imageUrl.slice(STORAGE_URL_PREFIX.length);
+}
+
+/**
+ * Generates a time-limited signed URL for a private bucket object — the
+ * bucket has no public/anon read access (created with `public: false`, no
+ * storage RLS policies), so this is the only way to render a thumbnail.
+ * Callers are responsible for having already verified the requesting user
+ * owns the underlying request (see app/history's DB-layer ownership checks)
+ * *before* calling this — the signed URL itself grants access to anyone
+ * holding it for its lifetime, so it must not be minted for images the
+ * caller hasn't confirmed belong to the current user.
+ */
+export async function getSignedImageUrl(imageUrl: string | null, expiresInSeconds = 3600): Promise<string | null> {
+  const objectPath = toObjectPath(imageUrl);
+  const supabase = getSupabaseAdmin();
+  if (!objectPath || !supabase) return null;
+
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(objectPath, expiresInSeconds);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
+/**
+ * Batch variant for list views (e.g. /history) — one Storage API round-trip
+ * for up to N paths instead of N round-trips. Returns a Map keyed by the
+ * *original* image_url (not the stripped object path) so callers can look
+ * results up directly against their source rows.
+ */
+export async function getSignedImageUrls(imageUrls: (string | null)[], expiresInSeconds = 3600): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return result;
+
+  const pathToOriginal = new Map<string, string>();
+  for (const url of imageUrls) {
+    const path = toObjectPath(url);
+    if (path && url) pathToOriginal.set(path, url);
+  }
+  if (pathToOriginal.size === 0) return result;
+
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrls(Array.from(pathToOriginal.keys()), expiresInSeconds);
+  if (error || !data) return result;
+
+  for (const item of data) {
+    const original = pathToOriginal.get(item.path ?? "");
+    if (original && item.signedUrl) result.set(original, item.signedUrl);
+  }
+  return result;
+}

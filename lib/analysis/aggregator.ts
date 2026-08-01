@@ -10,10 +10,6 @@ const SIMILAR_IMAGE_MAX_POINTS = 15;
 // pHash Hamming distance (out of 64 bits) beyond which "similar" no longer
 // means much — matches this far apart barely share pixel structure.
 const PHASH_MEANINGFUL_DISTANCE = 10;
-// Cosine distance (0=identical direction) beyond which a DINOv3-embedding
-// match is no longer trusted as "similar" — matches schema.sql's default
-// find_similar_by_embedding threshold.
-const EMBEDDING_MEANINGFUL_DISTANCE = 0.3;
 
 const FINAL_LABELS: Array<[threshold: number, label: string, isAiGenerated: boolean | null, confidence: FinalResult["confidence"]]> = [
   [80, "AI 생성 가능성 높음", true, "high"],
@@ -61,11 +57,11 @@ export interface AggregateResult {
 export function aggregateAnalysis(
   metadataResult: MetadataAnalysis,
   visionResults: VisionResult[],
-  /** Non-exact duplicate matches (pHash-loose or DINOv3-embedding) — an
-   *  exact/near-exact pHash match should go through
-   *  buildDuplicateAggregateResult() instead and skip this function
-   *  entirely (see lib/analysis/pipeline.ts). Closest-first (both DB RPCs
-   *  order by distance asc), so matches[0] is what actually gets used. */
+  /** Non-exact (pHash-loose) duplicate matches — an exact/near-exact pHash
+   *  match should go through buildDuplicateAggregateResult() instead and
+   *  skip this function entirely (see lib/analysis/pipeline.ts).
+   *  Closest-first (find_similar_images orders by distance asc), so
+   *  matches[0] is what actually gets used. */
   similarMatches: SimilarImageMatch[] = [],
 ): AggregateResult {
   let finalScore = 0;
@@ -140,20 +136,13 @@ export function aggregateAnalysis(
   // AI 생성으로 판정됐다면 이번 이미지도 AI일 가능성을 소폭 높이고, 반대도 마찬가지.
   // 가장 가까운(distance 최솟값) 매치 하나만 사용 — 여러 개를 합산하면 같은
   // 원본에서 파생된 사본들이 중복 집계되어 신호가 부풀려질 수 있음.
-  const usableMatch = similarMatches.find(
-    (m) =>
-      m.is_ai_generated !== null &&
-      (m.match_type === "phash" ? m.distance <= PHASH_MEANINGFUL_DISTANCE : m.distance <= EMBEDDING_MEANINGFUL_DISTANCE),
-  );
+  const usableMatch = similarMatches.find((m) => m.is_ai_generated !== null && m.distance <= PHASH_MEANINGFUL_DISTANCE);
   if (usableMatch) {
-    const closeness =
-      usableMatch.match_type === "phash"
-        ? 1 - usableMatch.distance / PHASH_MEANINGFUL_DISTANCE
-        : 1 - usableMatch.distance / EMBEDDING_MEANINGFUL_DISTANCE;
+    const closeness = 1 - usableMatch.distance / PHASH_MEANINGFUL_DISTANCE;
     const direction = usableMatch.is_ai_generated ? 1 : -1;
     finalScore += direction * closeness * SIMILAR_IMAGE_MAX_POINTS;
     evidenceSummary.push(
-      `이전에 분석한 유사 이미지(${usableMatch.match_type === "phash" ? "픽셀 유사" : "의미적 유사"}, 요청 ID: ${usableMatch.request_id})가 ` +
+      `이전에 분석한 유사 이미지(픽셀 유사, 요청 ID: ${usableMatch.request_id})가 ` +
         `${usableMatch.is_ai_generated ? "AI 생성" : "실제 이미지"}로 판정되어 이번 결과에 반영되었습니다.`,
     );
   }

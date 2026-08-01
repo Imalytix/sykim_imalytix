@@ -10,7 +10,6 @@ MV3 사이드패널 확장. 이미지 위에서 우클릭 → "Imalytix로 이 �
 1. 분석 서버를 먼저 띄웁니다 (다른 터미널에서):
    ```bash
    npm run dev          # http://localhost:3000
-   # DINO까지 쓰려면 추가로: cd ml && python serve.py
    ```
 2. Chrome 주소창에 `chrome://extensions` 입력
 3. 우측 상단 "개발자 모드" 켜기

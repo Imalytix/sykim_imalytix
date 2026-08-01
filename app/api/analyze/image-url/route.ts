@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImageBytes, ImageValidationError, makeRequestId, type AnalysisMode } from "@/lib/analysis/pipeline";
 import { safeFetchImage, SecurityViolationError } from "@/lib/net/safeFetch";
-import { extractRequestContext, logAnalysisEvent } from "@/lib/logging/analysisLogger";
+import { extractRequestContext } from "@/lib/net/requestContext";
+import { recordVerification } from "@/lib/db/verification";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { corsPreflightResponse, withExtensionCors } from "@/lib/net/cors";
+import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,11 +34,20 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
   const context = extractRequestContext(request);
   const startedAt = Date.now();
 
+  // Analysis has never required an account and still doesn't — see the
+  // matching comment in app/api/analyze/image/route.ts.
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
+
   const rateLimit = checkRateLimit(context.ip);
   if (!rateLimit.allowed) {
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "image_url",
@@ -51,9 +62,10 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
 
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > MAX_JSON_BODY_BYTES) {
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "image_url",
@@ -81,24 +93,18 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
 
   try {
     const downloaded = await safeFetchImage(imageUrl, maxBytes, timeoutMs);
-    const { result, imagePath } = await analyzeImageBytes({
+    // On success, analyzeImageBytes() itself records the full result (see
+    // pipeline.ts's recordVerification call at its end) — nothing more to
+    // do here beyond returning it.
+    const { result } = await analyzeImageBytes({
       imageBytes: downloaded.buffer,
       mode,
       inputType: "image_url",
       sourceUrl: downloaded.finalUrl,
       requestId,
-    });
-
-    await logAnalysisEvent({
-      status: "ok",
-      requestId,
-      durationMs: Date.now() - startedAt,
+      userId,
       context,
-      inputType: "image_url",
-      mode,
-      sourceUrl: downloaded.finalUrl,
-      imagePath,
-      result,
+      startedAt,
     });
 
     return NextResponse.json(result);
@@ -108,11 +114,12 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
     // URL, a corrupt image), so it's fine to show them as-is. Anything else
     // is an internal failure (network stack, sharp, Supabase, vision SDKs)
     // that may carry paths/account details — that only goes to the console
-    // and the log sinks, never the client response.
+    // and verification_requests.error_message, never the client response.
     if (error instanceof SecurityViolationError || error instanceof ImageValidationError) {
-      await logAnalysisEvent({
-        status: "error",
+      await recordVerification({
         requestId,
+        userId,
+        status: "error",
         durationMs: Date.now() - startedAt,
         context,
         inputType: "image_url",
@@ -126,9 +133,10 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
     const rawMessage = error instanceof Error ? error.message : String(error);
     console.error(`[api/analyze/image-url] request ${requestId} failed`, error);
 
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "image_url",

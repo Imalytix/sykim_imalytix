@@ -29,14 +29,10 @@ body {
 }
 
 .logo-mark {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 22px;
+  width: auto;
   flex-shrink: 0;
-  color: #3b82f6;
-  font-size: 18px;
+  display: block;
 }
 .logo-text {
   font-size: 15px;

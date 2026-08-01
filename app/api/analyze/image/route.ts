@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImageBytes, ImageValidationError, makeRequestId, type AnalysisMode } from "@/lib/analysis/pipeline";
-import { extractRequestContext, logAnalysisEvent } from "@/lib/logging/analysisLogger";
+import { extractRequestContext } from "@/lib/net/requestContext";
+import { recordVerification } from "@/lib/db/verification";
 import { checkRateLimit } from "@/lib/security/rateLimit";
+import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,11 +15,22 @@ export async function POST(request: NextRequest) {
   const context = extractRequestContext(request);
   const startedAt = Date.now();
 
+  // Analysis has never required an account and still doesn't — this is
+  // just "attach the request to whoever's logged in, if anyone" so it can
+  // show up in a future "내 분석 이력" page. A missing/invalid session
+  // resolves to null here rather than rejecting the request.
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
+
   const rateLimit = checkRateLimit(context.ip);
   if (!rateLimit.allowed) {
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "file_upload",
@@ -39,9 +52,10 @@ export async function POST(request: NextRequest) {
   const maxBytes = Number(process.env.MAX_FILE_SIZE_MB || 10) * 1024 * 1024;
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > maxBytes) {
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "file_upload",
@@ -78,9 +92,10 @@ export async function POST(request: NextRequest) {
 
   const arrayBuffer = await file.arrayBuffer();
   if (arrayBuffer.byteLength > maxBytes) {
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "file_upload",
@@ -92,32 +107,27 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { result, imagePath } = await analyzeImageBytes({
+    // On success, analyzeImageBytes() itself records the full result (see
+    // pipeline.ts's recordVerification call at its end) — nothing more to
+    // do here beyond returning it.
+    const { result } = await analyzeImageBytes({
       imageBytes: Buffer.from(arrayBuffer),
       mode,
       inputType: "file_upload",
       filename: file.name,
       requestId,
-    });
-
-    await logAnalysisEvent({
-      status: "ok",
-      requestId,
-      durationMs: Date.now() - startedAt,
+      userId,
       context,
-      inputType: "file_upload",
-      mode,
-      filename: file.name,
-      imagePath,
-      result,
+      startedAt,
     });
 
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof ImageValidationError) {
-      await logAnalysisEvent({
-        status: "error",
+      await recordVerification({
         requestId,
+        userId,
+        status: "error",
         durationMs: Date.now() - startedAt,
         context,
         inputType: "file_upload",
@@ -131,14 +141,15 @@ export async function POST(request: NextRequest) {
     // Unexpected (non-validation) failures can carry internal detail — a
     // sharp/Supabase/vision-SDK error message, sometimes with a filesystem
     // path or account info. That detail is only safe on the server: it goes
-    // to the console + the existing log sinks (local file / Supabase
-    // `request_logs`), never into the client-facing response.
+    // to the console + verification_requests.error_message, never into the
+    // client-facing response.
     const rawMessage = error instanceof Error ? error.message : String(error);
     console.error(`[api/analyze/image] request ${requestId} failed`, error);
 
-    await logAnalysisEvent({
-      status: "error",
+    await recordVerification({
       requestId,
+      userId,
+      status: "error",
       durationMs: Date.now() - startedAt,
       context,
       inputType: "file_upload",

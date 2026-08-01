@@ -27,7 +27,18 @@ const els = {
   newAnalysisBtn: document.getElementById("newAnalysisBtn"),
 };
 
-const PROVIDER_DISPLAY_NAMES = { openai: "OpenAI", gemini: "Gemini", claude: "Claude", dino: "DINOv3" };
+const PROVIDER_DISPLAY_NAMES = { openai: "OpenAI", gemini: "Gemini", claude: "Claude" };
+
+// This file builds DOM via innerHTML template strings (no framework to
+// auto-escape interpolated values the way React does in the web app). Some
+// of what gets interpolated is genuinely attacker-controlled — EXIF Make/
+// Model/LensModel are free-text fields anyone can set to arbitrary strings
+// with any EXIF editor before uploading, and a provider's error_message can
+// echo text from the upstream API. Every interpolated value that isn't a
+// literal from this file must go through this before landing in innerHTML.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
 
 // Same red(high)/green(low)/gray(uncertain) tone as toneForScore below, but
 // keyed off a provider's own is_ai_generated verdict rather than a 0-100
@@ -175,8 +186,8 @@ function renderResult(result, sourceUrl) {
     row.innerHTML = `
       <div class="finding-icon ${f.ok ? "ok" : "warn"}">${f.ok ? "✓" : "!"}</div>
       <div>
-        <div class="finding-title">${f.title}</div>
-        <div class="finding-sub">${f.sub}</div>
+        <div class="finding-title">${escapeHtml(f.title)}</div>
+        <div class="finding-sub">${escapeHtml(f.sub)}</div>
       </div>`;
     els.keyFindings.appendChild(row);
   }
@@ -204,7 +215,7 @@ function renderProviders(visionResults) {
     return;
   }
   for (const v of visionResults) {
-    const name = PROVIDER_DISPLAY_NAMES[v.provider] ?? v.provider;
+    const name = escapeHtml(PROVIDER_DISPLAY_NAMES[v.provider] ?? v.provider);
     const card = document.createElement("div");
     card.className = "provider-card";
     if (v.error_message) {
@@ -212,7 +223,7 @@ function renderProviders(visionResults) {
         <div class="provider-card__head">
           <span class="provider-card__name">${name}</span>
         </div>
-        <div class="provider-card__error">API 연동 실패: ${v.error_message}</div>`;
+        <div class="provider-card__error">API 연동 실패: ${escapeHtml(v.error_message)}</div>`;
       els.providerRows.appendChild(card);
       continue;
     }
@@ -224,10 +235,10 @@ function renderProviders(visionResults) {
     ].filter(Boolean);
     card.innerHTML = `
       <div class="provider-card__head">
-        <span class="provider-card__name">${name}${metaParts.length ? ` · ${metaParts.join(" · ")}` : ""}</span>
+        <span class="provider-card__name">${name}${metaParts.length ? ` · ${escapeHtml(metaParts.join(" · "))}` : ""}</span>
         <span class="provider-card__score" style="color:${tone}">${percent}%</span>
       </div>
-      <div class="provider-card__verdict">${verdictLabel(v.is_ai_generated)}</div>
+      <div class="provider-card__verdict">${escapeHtml(verdictLabel(v.is_ai_generated))}</div>
       <div class="provider-card__bar"><i style="width:${Math.max(4, percent)}%;background:${tone}"></i></div>`;
     els.providerRows.appendChild(card);
   }
@@ -255,8 +266,12 @@ function renderMetadata(meta) {
     els.metadataCard.innerHTML = '<div class="meta-empty">표시할 메타데이터가 없습니다.</div>';
     return;
   }
+  // `label` is always one of this function's own literals above, but
+  // `value` frequently isn't — camera.make/model/exposure_time/f_number are
+  // free-text EXIF fields anyone can set to arbitrary strings with an EXIF
+  // editor before uploading, so this is the one row genuinely worth escaping.
   els.metadataCard.innerHTML = rows
-    .map(([label, value]) => `<div class="meta-row"><span class="meta-row__label">${label}</span><span class="meta-row__value">${value}</span></div>`)
+    .map(([label, value]) => `<div class="meta-row"><span class="meta-row__label">${escapeHtml(label)}</span><span class="meta-row__value">${escapeHtml(value)}</span></div>`)
     .join("");
 }
 

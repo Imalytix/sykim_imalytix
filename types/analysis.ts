@@ -27,9 +27,8 @@ export type ContentType = "face" | "body" | "animal" | "landscape" | "object" | 
 /** Token usage + a rough USD cost estimate for one provider call. `cost_usd`
  *  is computed client-side from a hardcoded per-model price table (see
  *  lib/vision/pricing.ts) — an estimate for relative cost tracking, not a
- *  substitute for the provider's actual billing dashboard. null for DINO
- *  (self-hosted, no per-token pricing) and whenever a provider's response
- *  didn't include usage data. */
+ *  substitute for the provider's actual billing dashboard. null whenever a
+ *  provider's response didn't include usage data. */
 export interface UsageInfo {
   input_tokens: number | null;
   output_tokens: number | null;
@@ -37,7 +36,7 @@ export interface UsageInfo {
 }
 
 export interface VisionResult {
-  provider: "openai" | "gemini" | "claude" | "dino";
+  provider: "openai" | "gemini" | "claude";
   model_name?: string;
   is_ai_generated: boolean | null;
   score: number;
@@ -141,9 +140,6 @@ export interface SimilarImageMatch {
   ai_probability: number | null;
   image_path: string | null;
   created_at: string;
-  /** "phash" = near-exact re-upload/re-compression match; "embedding" =
-   *  DINOv3 kNN fallback, only run when pHash found nothing. */
-  match_type: "phash" | "embedding";
   /** null for rows inserted before this column existed, or when the matched
    *  row was itself a duplicate-of-a-duplicate whose original also predates
    *  it. pipeline.ts only takes the exact-duplicate fast path when this is
@@ -156,12 +152,12 @@ export interface DuplicateCheck {
   checked: boolean;
   matches: SimilarImageMatch[];
   /** true when a near-identical pHash match short-circuited this request —
-   *  the LLM/DINO calls were skipped entirely and final_result reuses that
+   *  the LLM calls were skipped entirely and final_result reuses that
    *  earlier image's stored verdict (see aggregator.ts's
    *  buildDuplicateAggregateResult). matches[0] is that image. */
   used_cached_result: boolean;
-  /** true when non-exact similar matches (pHash-loose or DINOv3-embedding)
-   *  nudged final_result.ai_probability via aggregator.ts's similar-image
+  /** true when non-exact (pHash-loose) similar matches nudged
+   *  final_result.ai_probability via aggregator.ts's similar-image
    *  bonus/penalty, without skipping analysis. matches[0] is the closest one
    *  that was actually used. */
   influenced_score: boolean;

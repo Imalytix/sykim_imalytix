@@ -15,7 +15,7 @@
  *     by instance count. A shared store (Supabase table with an atomic
  *     increment, or Upstash Redis) would be needed to close that gap.
  *   - Keyed off X-Forwarded-For (see extractRequestContext in
- *     analysisLogger.ts), which is only trustworthy behind a reverse proxy
+ *     lib/net/requestContext.ts), which is only trustworthy behind a reverse proxy
  *     that sets it (Vercel does this automatically). Self-hosting `next
  *     start` directly with no proxy in front means every caller's IP reads
  *     as null and collapses into one shared "unknown" bucket — effectively

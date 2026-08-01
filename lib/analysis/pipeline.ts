@@ -8,9 +8,9 @@ import { aggregateAnalysis, buildDuplicateAggregateResult, type AggregateResult 
 import { analyzeWithOpenAI } from "@/lib/vision/openai";
 import { analyzeWithGemini } from "@/lib/vision/gemini";
 import { analyzeWithClaude } from "@/lib/vision/anthropic";
-import { analyzeWithDino, type DinoOutcome } from "./dino";
 import { saveAnalyzedImage } from "@/lib/storage/imageStore";
-import { findSimilarByEmbedding, findSimilarImages, insertImageRecord } from "@/lib/db/imageRecords";
+import { findSimilarImages, recordVerification } from "@/lib/db/verification";
+import type { RequestContext } from "@/lib/net/requestContext";
 
 export type AnalysisMode = "quick" | "standard" | "deep";
 
@@ -47,10 +47,10 @@ const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
 // treated as "the same photo" (re-save/re-compression/minor resize), not
 // merely similar — tight enough that visually-similar-but-distinct photos
 // (which tend to land around distance 8-10) shouldn't trigger this. When
-// matched, the LLM/DINO calls are skipped entirely and the earlier image's
+// matched, the LLM calls are skipped entirely and the earlier image's
 // stored verdict is reused (see buildDuplicateAggregateResult) — heuristic,
 // not yet calibrated against a real duplicate-vs-distinct distance
-// distribution (same caveat as schema.sql's embedding-distance default).
+// distribution.
 const EXACT_DUPLICATE_PHASH_DISTANCE = 3;
 
 export interface AnalyzeOutcome {
@@ -66,8 +66,18 @@ export async function analyzeImageBytes(params: {
   sourceUrl?: string | null;
   filename?: string | null;
   requestId: string;
+  /** Who's making this request (null when not logged in — analysis has
+   *  never required an account and still doesn't). Attached to
+   *  verification_requests.user_id so a future "내 분석 이력" page can
+   *  find it; RLS on that table already restricts reads to the owner. */
+  userId: string | null;
+  context: RequestContext;
+  /** Route handler's own start time (before rate-limit/size checks), so
+   *  duration_ms reflects total request handling, not just this function's
+   *  slice of it — matches what the old request_logs.duration_ms measured. */
+  startedAt: number;
 }): Promise<AnalyzeOutcome> {
-  const { imageBytes, mode, inputType, sourceUrl, filename, requestId } = params;
+  const { imageBytes, mode, inputType, sourceUrl, filename, requestId, userId, context, startedAt } = params;
 
   const originalMeta = await sharp(imageBytes, { failOn: "none" })
     .metadata()
@@ -100,7 +110,7 @@ export async function analyzeImageBytes(params: {
 
   // Awaited here (not fire-and-forget) — unlike before, the exact-duplicate
   // fast path below needs this decided *before* choosing whether to call
-  // the LLMs/DINO at all, not just to enrich the response at the end.
+  // the LLMs at all, not just to enrich the response at the end.
   //
   // Requiring full_result (not just distance + a verdict) means the fast
   // path only fires when there's an actual complete result to show — a
@@ -127,15 +137,14 @@ export async function analyzeImageBytes(params: {
   });
 
   let visionResults: VisionResult[] = [];
-  let dinoEmbedding: number[] | null = null;
-  let similarMatches: SimilarImageMatch[] = phashMatches;
   let aggregateResult: AggregateResult;
+  const similarMatches: SimilarImageMatch[] = phashMatches;
 
   if (exactDuplicate) {
     // Same photo (re-save/re-compression/minor resize) already analyzed —
     // reuse that earlier result wholesale (score AND the full provider/
-    // evidence/region breakdown) instead of spending LLM/DINO calls to
-    // almost certainly reproduce the same answer on pixel-identical bytes.
+    // evidence/region breakdown) instead of spending LLM calls to almost
+    // certainly reproduce the same answer on pixel-identical bytes.
     const dup = buildDuplicateAggregateResult(exactDuplicate);
     aggregateResult = dup.aggregate;
     visionResults = dup.visionResults;
@@ -151,30 +160,7 @@ export async function analyzeImageBytes(params: {
     if (routing.call_gemini) llmCalls.push(analyzeWithGemini(preprocessed.buffer, "image/jpeg", routing.prompt_type));
     if (routing.call_claude) llmCalls.push(analyzeWithClaude(preprocessed.buffer, "image/jpeg", routing.prompt_type));
 
-    // Opt-in (not opt-out): unlike the LLMs, a missing DINO service fails via
-    // a 10s timeout per call (see dino.ts), which would tax every request if
-    // it were on by default in an environment where ml/serve.py isn't
-    // running. Called separately from llmCalls (not pushed into the same
-    // array) because DINO returns a DinoOutcome (VisionResult + a raw
-    // embedding), not a bare VisionResult — the embedding is needed below
-    // for the pgvector fallback search and must not leak into
-    // vision_results/logs.
-    const dinoPromise: Promise<DinoOutcome | null> =
-      process.env.IMALYTIX_ENABLE_DINO === "true" ? analyzeWithDino(preprocessed.buffer) : Promise.resolve(null);
-
-    const [llmResults, dinoOutcome] = await Promise.all([
-      llmCalls.length > 0 ? Promise.all(llmCalls) : Promise.resolve([]),
-      dinoPromise,
-    ]);
-    visionResults = dinoOutcome ? [...llmResults, dinoOutcome.result] : llmResults;
-    dinoEmbedding = dinoOutcome?.embedding ?? null;
-
-    // Stage 2: only spend a second DB round-trip on the embedding kNN search
-    // when stage 1 (pHash) found nothing *and* this request actually has an
-    // embedding (DINO enabled + reachable) — most requests never reach this.
-    if (phashMatches.length === 0 && dinoEmbedding) {
-      similarMatches = await findSimilarByEmbedding(dinoEmbedding);
-    }
+    visionResults = llmCalls.length > 0 ? await Promise.all(llmCalls) : [];
 
     aggregateResult = aggregateAnalysis(metadataResult, visionResults, similarMatches);
   }
@@ -217,24 +203,39 @@ export async function analyzeImageBytes(params: {
     duplicate_check: duplicateCheck,
   };
 
-  // Propagate the cached full_result forward on a duplicate hit (rather than
-  // storing null) so a *third* upload of the same phash still finds a usable
-  // result — otherwise the very first fast-path row would dead-end the chain.
-  const fullResultToStore = exactDuplicate
-    ? exactDuplicate.full_result
-    : { vision_results: visionResults, evidence_summary: aggregateResult.evidence_summary, suspicious_regions: aggregateResult.suspicious_regions };
-
   // Best-effort — record this analysis so future requests can be compared
-  // against it. Never let a DB hiccup fail the analysis itself.
-  await insertImageRecord({
+  // against it (and, if logged in, so it shows up in "내 분석 이력"). Never
+  // let a DB hiccup fail the analysis itself. visionResults here is either
+  // freshly computed or (on an exact-duplicate hit) copied from the matched
+  // request — either way it's the right thing to show in verification_
+  // evidence, but loggedProviderCalls:false on the duplicate path stops that
+  // reused data from also being logged as a fresh (and non-existent) API call.
+  await recordVerification({
     requestId,
-    phashHex: phash,
-    isAiGenerated: result.final_result.is_ai_generated,
-    aiProbability: result.final_result.ai_probability,
-    imagePath,
+    userId,
+    inputType,
     mode,
-    embedding: dinoEmbedding,
-    fullResult: fullResultToStore,
+    status: "ok",
+    durationMs: Date.now() - startedAt,
+    context,
+    sourceUrl,
+    filename,
+    image: {
+      phashHex: phash,
+      width: reportedWidth,
+      height: reportedHeight,
+      mimeType,
+      fileSizeBytes: imageBytes.length,
+      imagePath,
+    },
+    visionResults,
+    loggedProviderCalls: !exactDuplicate,
+    metadataResult,
+    finalResult: result.final_result,
+    evidenceSummary: result.evidence_summary,
+    suspiciousRegions: result.suspicious_regions,
+    limitations: result.limitations,
+    recommendedAction: result.recommended_action,
   });
 
   return { result, imagePath };
