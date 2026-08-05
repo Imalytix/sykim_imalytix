@@ -368,7 +368,18 @@ begin
     return v_request_id;
   end if;
 
-  if img is not null then
+  -- jsonb_typeof(...) = 'object'/'array' instead of "is not null" — a JS
+  -- `null` (image/result absent, or provider_calls/evidence empty-array
+  -- collapsed to null) serializes to the JSON literal `null`, which Postgres
+  -- reads back as a jsonb scalar, NOT a SQL NULL. `payload -> 'x' is not
+  -- null` is true for that scalar, so the old checks below wrongly entered
+  -- these blocks and either violated a NOT NULL column (image/result) or
+  -- called jsonb_array_elements() on a scalar — 22023 "cannot extract
+  -- elements from a scalar" (hit in practice on an exact-duplicate re-analysis,
+  -- where loggedProviderCalls:false collapses provider_calls to null).
+  -- jsonb_typeof() returns NULL (not 'object'/'array') for both an absent
+  -- key and a JSON null, so both cases now correctly skip the block.
+  if jsonb_typeof(img) = 'object' then
     insert into request_images (request_id, phash, width, height, mime_type, file_size, category, image_url)
     values (
       v_request_id,
@@ -383,7 +394,7 @@ begin
     returning id into v_image_id;
   end if;
 
-  if payload -> 'provider_calls' is not null then
+  if jsonb_typeof(payload -> 'provider_calls') = 'array' then
     for v_call in select * from jsonb_array_elements(payload -> 'provider_calls')
     loop
       insert into ai_provider_calls (
@@ -408,7 +419,7 @@ begin
     end loop;
   end if;
 
-  if payload -> 'evidence' is not null then
+  if jsonb_typeof(payload -> 'evidence') = 'array' then
     for v_ev in select * from jsonb_array_elements(payload -> 'evidence')
     loop
       insert into verification_evidence (request_id, source, score, confidence, is_ai_generated, result)
@@ -424,7 +435,7 @@ begin
     end loop;
   end if;
 
-  if res is not null then
+  if jsonb_typeof(res) = 'object' then
     insert into verification_results (
       request_id, final_score, final_label, is_ai_generated, confidence,
       evidence_summary, suspicious_regions, limitations, recommended_action
@@ -689,3 +700,24 @@ left join verification_results res on res.request_id = vr.id
 order by f.created_at desc;
 
 comment on view v_feedback_recent is '피드백 메시지를 해당 분석의 판정 결과와 함께 조회 — 어떤 판정에 대한 피드백인지 맥락 파악용.';
+
+-- v_user_stats — 로그인 사용자별 집계(가입일/총 분석 횟수/판정 분포/평균 점수/최근 활동).
+-- v_user_activity_log는 요청 1건=1행이라 "이 사람이 총 몇 번 썼는지" 같은 걸 보려면
+-- 매번 직접 group by 해야 했는데, 그게 자주 필요한 조회라 뷰로 고정해뒀습니다.
+create or replace view v_user_stats as
+select
+  u.id as user_id,
+  u.email,
+  u.created_at as signed_up_at,
+  count(vr.id) as total_requests,
+  count(vr.id) filter (where res.is_ai_generated = true) as ai_generated_count,
+  count(vr.id) filter (where res.is_ai_generated = false) as real_count,
+  round(avg(res.final_score), 1) as avg_score,
+  max(vr.created_at) as last_request_at
+from users u
+left join verification_requests vr on vr.user_id = u.id
+left join verification_results res on res.request_id = vr.id
+group by u.id, u.email, u.created_at
+order by total_requests desc;
+
+comment on view v_user_stats is '로그인 사용자별 가입일/총 분석 횟수/판정 분포/평균 점수/최근 활동 — 유저 단위 리텐션·활용도 파악용.';

@@ -149,7 +149,7 @@ export async function analyzeImageBytes(params: {
     aggregateResult = dup.aggregate;
     visionResults = dup.visionResults;
   } else {
-    const routing = decideRouting(mode, metadataResult, {
+    const routing = decideRouting({
       openai: Boolean(process.env.OPENAI_API_KEY),
       gemini: Boolean(process.env.GEMINI_API_KEY),
       claude: Boolean(process.env.ANTHROPIC_API_KEY),

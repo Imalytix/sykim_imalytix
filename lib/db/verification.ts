@@ -247,10 +247,10 @@ export async function recordVerification(params: RecordVerificationParams): Prom
  * back empty here and this returns null. That's the actual ownership check;
  * there's no separate manual `user_id === requestingUser` comparison because
  * the database itself won't return the row otherwise. This is deliberately
- * a different code path from findSimilarImages/findSimilarByEmbedding above,
- * which use the admin client on purpose — cross-user phash/embedding
- * duplicate-detection during analysis is supposed to see every user's
- * images, only this user-facing history view needs to be scoped.
+ * a different code path from findSimilarImages above, which uses the admin
+ * client on purpose — cross-user phash duplicate-detection during analysis
+ * is supposed to see every user's images, only this user-facing history
+ * view needs to be scoped.
  *
  * duplicate_check is filled with a neutral "not checked" value — it isn't
  * stored per-request, and re-deriving it would require re-running the
@@ -261,11 +261,41 @@ export async function getVerificationDetail(
   supabase: SupabaseClient,
   requestId: string,
 ): Promise<{ analysisResult: AnalysisResult; imageUrl: string | null } | null> {
-  const { data: request } = await supabase
-    .from("verification_requests")
-    .select("id, request_id, mode, input_type")
-    .eq("request_id", requestId)
-    .maybeSingle();
+  return buildVerificationDetail(supabase, requestId);
+}
+
+/**
+ * Same reconstruction as getVerificationDetail, but for the Chrome
+ * extension's "웹에서 자세히 보기" deep link (app/result/[requestId]) — the
+ * extension has no login flow, so its analyses are always anonymous
+ * (user_id null) and this needs to work *without* a session.
+ *
+ * Uses the admin client (RLS can't help here — there's no auth.uid() to
+ * check against for an anonymous row), so the anonymous-only guard is
+ * enforced explicitly via `.is("user_id", null)` in the query itself rather
+ * than as an after-the-fact check on already-fetched data: a request that
+ * *does* belong to a logged-in user simply doesn't match the query and this
+ * returns null, the same "row doesn't come back" pattern getVerificationDetail
+ * relies on for its own ownership check. That keeps a logged-in user's
+ * saved history from being viewable by anyone who happens to know/guess
+ * their request_id — only ever-anonymous requests are link-shareable.
+ */
+export async function getPublicVerificationDetail(
+  requestId: string,
+): Promise<{ analysisResult: AnalysisResult; imageUrl: string | null } | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+  return buildVerificationDetail(supabase, requestId, { anonymousOnly: true });
+}
+
+async function buildVerificationDetail(
+  supabase: SupabaseClient,
+  requestId: string,
+  options: { anonymousOnly?: boolean } = {},
+): Promise<{ analysisResult: AnalysisResult; imageUrl: string | null } | null> {
+  let query = supabase.from("verification_requests").select("id, request_id, mode, input_type").eq("request_id", requestId);
+  if (options.anonymousOnly) query = query.is("user_id", null);
+  const { data: request } = await query.maybeSingle();
   if (!request) return null;
 
   const [{ data: image }, { data: evidenceRows }, { data: result }] = await Promise.all([

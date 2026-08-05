@@ -24,6 +24,7 @@ const els = {
   interpText: document.getElementById("interpText"),
   providerRows: document.getElementById("providerRows"),
   metadataCard: document.getElementById("metadataCard"),
+  openWebBtn: document.getElementById("openWebBtn"),
   newAnalysisBtn: document.getElementById("newAnalysisBtn"),
 };
 
@@ -70,6 +71,9 @@ function formatCapturedAt(iso) {
 }
 
 let lastAnalyzedUrl = null;
+// Set in renderResult() — request_id is what app/result/[requestId] needs
+// to reconstruct this same result on the web (see openWebBtn handler below).
+let lastResult = null;
 
 function showState(name) {
   for (const s of ["emptyState", "loadingState", "errorState", "resultState"]) {
@@ -109,6 +113,7 @@ function toneForScore(score) {
 }
 
 function renderResult(result, sourceUrl) {
+  lastResult = result;
   const scorePercent = clampPercent(result.final_result.ai_probability);
   const meta = result.metadata_analysis;
   const dup = result.duplicate_check;
@@ -307,7 +312,15 @@ els.urlInput.addEventListener("keydown", (e) => {
 });
 els.newAnalysisBtn.addEventListener("click", () => {
   els.urlInput.value = "";
+  lastResult = null;
   showState("emptyState");
+});
+els.openWebBtn.addEventListener("click", async () => {
+  if (!lastResult?.request_id) return;
+  const apiBase = await getApiBase();
+  // A plain tab navigation, not a fetch — CORS/host_permissions don't apply
+  // here, so this works even though this extension is otherwise localhost-only.
+  chrome.tabs.create({ url: `${apiBase}/result/${lastResult.request_id}` });
 });
 els.errorRetryBtn.addEventListener("click", () => {
   if (lastAnalyzedUrl) analyze(lastAnalyzedUrl);

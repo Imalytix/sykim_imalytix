@@ -1,168 +1,69 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 
-type Mode = "signin" | "signup";
+/** Google's standard 4-color "G" mark — used on the official "Continue with
+ *  Google" button style (white bg, colored G, dark text), matching the
+ *  design handoff exactly. */
+function GoogleLogo() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.68-3.87 2.68-6.62z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z" />
+      <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
+    </svg>
+  );
+}
 
-function OAuthButton({ provider, label, className }: { provider: "google" | "kakao"; label: string; className: string }) {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackError = searchParams.get("error");
   const [loading, setLoading] = useState(false);
 
-  const handleClick = async () => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
     // Redirects the whole browser tab away — nothing after this line runs
     // on success. app/auth/callback/route.ts is what completes the flow.
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
       setLoading(false);
-      alert(`${label} 로그인을 시작할 수 없습니다: ${error.message}`);
+      alert(`로그인을 시작할 수 없습니다: ${error.message}`);
     }
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={loading}
-      className={`flex h-11 w-full items-center justify-center rounded-xl text-sm font-bold transition disabled:opacity-50 ${className}`}
-    >
-      {loading ? "이동 중…" : label}
-    </button>
-  );
-}
-
-function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackError = searchParams.get("error");
-
-  const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    callbackError ? "소셜 로그인 처리 중 문제가 발생했습니다. 다시 시도해주세요." : null,
-  );
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    setInfoMessage(null);
-    setLoading(true);
-    const supabase = createSupabaseBrowserClient();
-
-    try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        router.push("/");
-        router.refresh();
-      } else {
-        // display_name is stored in auth.users' user_metadata here — the
-        // public.users profile row's own display_name column (schema.sql's
-        // handle_new_user trigger) only copies email at signup time, not
-        // this. Left as a known follow-up rather than adding a second
-        // trigger/update round-trip for a field this app doesn't show
-        // anywhere in the UI yet.
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { display_name: displayName || null } },
-        });
-        if (error) throw error;
-        setInfoMessage("가입 확인 이메일을 보냈습니다 — 메일함을 확인해주세요.");
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "요청을 처리할 수 없습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="mx-auto flex w-full max-w-sm flex-col gap-6 px-6 py-16">
-      <div className="text-center">
-        <h1 className="text-xl font-bold text-[#f4f4f6]">{mode === "signin" ? "로그인" : "회원가입"}</h1>
-        <p className="mt-1.5 text-sm text-[#9a9aa4]">
-          {mode === "signin" ? "계정으로 로그인하세요." : "이메일로 새 계정을 만드세요."}
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-2.5">
-        <OAuthButton provider="google" label="Google로 계속하기" className="border border-white/14 bg-white text-[#1a1a1a] hover:bg-white/90" />
-        {/* 카카오 provider는 Supabase 대시보드에서 아직 활성화 전이라 잠시 숨김
-            (구글부터 해결 후 다시 켤 예정) — 코드는 그대로 두고 주석만 처리. */}
-        {/* <OAuthButton provider="kakao" label="카카오로 계속하기" className="bg-[#FEE500] text-[#1a1a1a] hover:brightness-95" /> */}
-      </div>
-
-      <div className="flex items-center gap-3 text-xs text-[#6b6b76]">
-        <div className="h-px flex-1 bg-white/10" />
-        또는
-        <div className="h-px flex-1 bg-white/10" />
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {mode === "signup" && (
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="닉네임 (선택)"
-            className="h-11 w-full rounded-xl border border-white/14 bg-black/20 px-4 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/25"
-          />
-        )}
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="이메일"
-          className="h-11 w-full rounded-xl border border-white/14 bg-black/20 px-4 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/25"
-        />
-        <input
-          type="password"
-          required
-          minLength={6}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="비밀번호 (6자 이상)"
-          className="h-11 w-full rounded-xl border border-white/14 bg-black/20 px-4 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/25"
-        />
-
-        {errorMessage && <p className="text-[13px] text-rose-400">{errorMessage}</p>}
-        {infoMessage && <p className="text-[13px] text-[#4ade80]">{infoMessage}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-1 h-11 w-full rounded-xl bg-[#3b82f6] text-sm font-bold text-white shadow-[0_10px_30px_rgba(59,130,246,0.35)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
-        >
-          {loading ? "처리 중…" : mode === "signin" ? "로그인" : "회원가입"}
-        </button>
-      </form>
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 px-6 py-24 text-center">
+      <h1 className="text-2xl font-bold tracking-tight text-white">로그인하고 검증 기록을 보관하세요</h1>
+      <p className="text-sm text-[#9a9aa4]">언제든 이전에 확인한 이미지와 분석 결과를 다시 볼 수 있습니다.</p>
 
       <button
         type="button"
-        onClick={() => {
-          setMode(mode === "signin" ? "signup" : "signin");
-          setErrorMessage(null);
-          setInfoMessage(null);
-        }}
-        className="text-center text-[13px] text-[#9a9aa4] hover:text-[#f4f4f6]"
+        onClick={handleGoogleLogin}
+        disabled={loading}
+        className="mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-3 rounded-xl border border-black/10 bg-white text-sm font-semibold text-[#1a1a1a] shadow-sm transition hover:bg-white/90 disabled:opacity-50"
       >
-        {mode === "signin" ? "계정이 없으신가요? 회원가입" : "이미 계정이 있으신가요? 로그인"}
+        {loading ? (
+          "이동 중…"
+        ) : (
+          <>
+            <GoogleLogo /> Continue with Google
+          </>
+        )}
       </button>
 
-      <Link href="/" className="text-center text-[13px] text-[#6b6b76] hover:text-[#9a9aa4]">
+      {callbackError && <p className="mt-2 text-[13px] text-rose-400">소셜 로그인 처리 중 문제가 발생했습니다. 다시 시도해주세요.</p>}
+
+      <Link href="/" className="mt-4 text-[13px] text-[#6b6b76] hover:text-[#9a9aa4]">
         ← 로그인 없이 계속 사용하기
       </Link>
     </div>
@@ -171,11 +72,14 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#0a0a0c]">
+    <div className="flex min-h-screen flex-col bg-black">
       <AppHeader />
-      <Suspense fallback={null}>
-        <LoginForm />
-      </Suspense>
+      <div className="flex-1">
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
+      </div>
+      <AppFooter />
     </div>
   );
 }

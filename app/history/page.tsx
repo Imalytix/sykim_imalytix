@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { getSignedImageUrls } from "@/lib/storage/imageStore";
@@ -7,10 +8,12 @@ import { clampPercent, getScoreLabel } from "@/lib/utils/score";
 
 export const dynamic = "force-dynamic";
 
+// Matches ScoreGauge.tsx's tone bands (design handoff legend: 0-35 낮음,
+// 36-64 중간, 65-100 높음).
 function toneClass(score: number): string {
-  if (score >= 60) return "text-[#fca5a5]";
-  if (score < 31) return "text-[#86efac]";
-  return "text-[#e5e5ea]";
+  if (score >= 65) return "text-[#fca5a5]";
+  if (score >= 36) return "text-[#fcd34d]";
+  return "text-[#86efac]";
 }
 
 interface RequestRow {
@@ -74,9 +77,9 @@ export default async function HistoryPage() {
   const signedUrlByImageUrl = await getSignedImageUrls(Array.from(imageUrlByRequestId.values()));
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c]">
+    <div className="flex min-h-screen flex-col bg-black">
       <AppHeader />
-      <main className="mx-auto w-full max-w-2xl px-6 py-10">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/9 bg-white/[0.04] p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6b6b76]">마이페이지</p>
@@ -141,6 +144,7 @@ export default async function HistoryPage() {
           })}
         </div>
       </main>
+      <AppFooter />
     </div>
   );
 }

@@ -41,12 +41,32 @@ export default function FeedbackForm({ requestId }: FeedbackFormProps) {
     }
   };
 
+  // 제출 완료 후엔 폼 대신 감사 인사 + 익스텐션 다운로드 유도로 교체 — 디자인 목업 그대로.
+  if (state === "sent") {
+    return (
+      <div className="mt-4 flex flex-col items-center gap-5 border-t border-white/8 pt-8 text-center">
+        <h2 className="text-[15px] font-bold leading-relaxed text-[#f4f4f6]">
+          후기를 보내주셔서 감사합니다
+          <br />
+          서비스를 다운받아 이미지를 우클릭 한 번으로 검증해보세요
+        </h2>
+        {/* Chrome 웹스토어 등록 전까지는 실제 다운로드 링크가 없음 — 배포되면 그 URL로 교체 필요 */}
+        <a
+          href="#"
+          className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
+        >
+          다운로드
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 flex flex-col items-center gap-4 border-t border-white/8 pt-8 text-center">
       <h2 className="text-[15px] font-bold leading-relaxed text-[#f4f4f6]">
         서비스는 만족스러우셨나요?
         <br />
-        소중한 피드백을 들려주시면 검토 후 반영하겠습니다
+        소중한 후기를 들려주시면 검토 후 반영하겠습니다
       </h2>
       <form onSubmit={handleSubmit} className="flex w-full flex-col gap-3">
         <textarea
@@ -54,20 +74,19 @@ export default function FeedbackForm({ requestId }: FeedbackFormProps) {
           value={message}
           onChange={(e) => {
             setMessage(e.target.value);
-            if (state === "sent" || state === "error") setState("idle");
+            if (state === "error") setState("idle");
           }}
           placeholder="어떤 점이 좋았고, 아쉬웠는지 자유롭게 적어 주세요."
-          className="w-full resize-none rounded-xl border border-white/14 bg-black/20 px-4 py-3 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/25"
+          className="w-full resize-none rounded-xl border border-white/14 bg-black/20 px-4 py-3 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#52bdff] focus:ring-2 focus:ring-[#52bdff]/25"
         />
         <button
           type="submit"
           disabled={!message.trim() || state === "submitting"}
-          className="rounded-xl bg-[#3b82f6] py-3 text-sm font-bold text-white shadow-[0_10px_30px_rgba(59,130,246,0.35)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-[#52bdff] py-3 text-sm font-bold text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state === "submitting" ? "전송 중…" : "피드백 남기기"}
         </button>
       </form>
-      {state === "sent" && <p className="text-[13px] text-[#4ade80]">소중한 의견 감사합니다 ✦</p>}
       {state === "error" && errorMessage && <p className="text-[13px] text-rose-400">{errorMessage}</p>}
     </div>
   );

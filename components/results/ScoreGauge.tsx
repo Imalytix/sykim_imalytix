@@ -1,26 +1,22 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { getScoreLabel } from "@/lib/utils/score";
 
 interface ScoreGaugeProps {
   score: number;
-  label?: string;
   size?: number;
 }
 
-// Tone-based (red/green), matching the 2026-08-01 dark-theme design handoff's
-// .tone-high/.tone-low gauge — replaces the earlier monochrome-by-design
-// pass. That handoff only has two tones (high/low); the middle "판단
-// 불확실" band (lib/utils/score.ts's 4-tier system has one) gets a neutral
-// blue-gray since it's genuinely neither a danger nor a safe signal.
-function toneForScore(score: number): { ring: string; track: string; badgeBg: string; badgeText: string } {
-  if (score >= 60) return { ring: "#f87171", track: "rgba(248,113,113,0.16)", badgeBg: "rgba(248,113,113,0.22)", badgeText: "#fca5a5" };
-  if (score < 31) return { ring: "#4ade80", track: "rgba(74,222,128,0.14)", badgeBg: "rgba(74,222,128,0.20)", badgeText: "#86efac" };
-  return { ring: "#a5adba", track: "rgba(255,255,255,0.12)", badgeBg: "rgba(255,255,255,0.14)", badgeText: "#e5e5ea" };
+// Colors extracted directly from the design handoff's Figma export (pixel-
+// sampled): #52bdff blue / #ffca1a amber / #f23e3e red. Bands match its
+// "AI 탐지율 판단 기준" legend exactly: 0-35% 낮음, 36-64% 중간, 65-100% 높음.
+function toneForScore(score: number): { ring: string; track: string; badgeBg: string; badgeText: string; shortLabel: string } {
+  if (score >= 65) return { ring: "#f23e3e", track: "rgba(242,62,62,0.12)", badgeBg: "#f23e3e", badgeText: "#ffffff", shortLabel: "높음" };
+  if (score >= 36) return { ring: "#ffca1a", track: "rgba(255,202,26,0.16)", badgeBg: "#ffca1a", badgeText: "#1a1a1a", shortLabel: "중간" };
+  return { ring: "#52bdff", track: "rgba(82,189,255,0.14)", badgeBg: "#52bdff", badgeText: "#ffffff", shortLabel: "낮음" };
 }
 
-export default function ScoreGauge({ score, label, size = 200 }: ScoreGaugeProps) {
+export default function ScoreGauge({ score, size = 200 }: ScoreGaugeProps) {
   const circleRef = useRef<SVGCircleElement | null>(null);
 
   // Design reference is a 120px viewBox gauge with r=52, stroke=9 — scale
@@ -64,15 +60,12 @@ export default function ScoreGauge({ score, label, size = 200 }: ScoreGaugeProps
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-          <div className="text-[10px] text-[#9a9aa4]">AI 생성 가능성</div>
-          <div className="font-[family-name:var(--font-inter)] text-[42px] leading-none font-bold tracking-tight text-[#f4f4f6]">
+          <div className="text-[10px] text-[#7a7a7a]">AI 생성 가능성</div>
+          <div className="font-[family-name:var(--font-inter)] text-[36px] leading-none font-bold tracking-tight text-[#1a1a1a]">
             {clampedScore}%
           </div>
-          <div
-            className="mt-1 rounded-full px-3 py-0.5 text-[13px] font-bold"
-            style={{ backgroundColor: tone.badgeBg, color: tone.badgeText }}
-          >
-            {label ?? getScoreLabel(clampedScore)}
+          <div className="mt-1 rounded-full px-3 py-0.5 text-[13px] font-bold" style={{ backgroundColor: tone.badgeBg, color: tone.badgeText }}>
+            {tone.shortLabel}
           </div>
         </div>
       </div>

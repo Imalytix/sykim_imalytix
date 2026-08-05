@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import AnalysisResultView from "@/components/results/AnalysisResultView";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
@@ -26,9 +27,9 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
 
   if (!detail) {
     return (
-      <div className="min-h-screen bg-[#0a0a0c]">
+      <div className="flex min-h-screen flex-col bg-black">
         <AppHeader />
-        <main className="mx-auto w-full max-w-2xl px-6 py-10">
+        <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
           <div className="rounded-xl border border-white/9 bg-white/[0.03] p-8 text-center text-sm text-[#9a9aa4]">
             해당 분석 기록을 찾을 수 없습니다.
             <br />
@@ -37,16 +38,23 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
             </Link>
           </div>
         </main>
+        <AppFooter />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c]">
+    <div className="flex min-h-screen flex-col bg-black">
       <AppHeader />
-      <main className="mx-auto w-full max-w-5xl px-6 py-10">
-        <AnalysisResultView analysisResult={detail.analysisResult} previewUrl={detail.imageUrl} backHref="/history" />
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+        <AnalysisResultView
+          analysisResult={detail.analysisResult}
+          previewUrl={detail.imageUrl}
+          backHref="/history"
+          returnPath={`/history/${requestId}`}
+        />
       </main>
+      <AppFooter />
     </div>
   );
 }

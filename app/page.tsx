@@ -4,6 +4,7 @@ import { FileSearch, Link2, ScanSearch, ShieldCheck, Upload } from "lucide-react
 import { useState } from "react";
 import AnalysisStepsLoader from "@/components/results/AnalysisStepsLoader";
 import AnalysisResultView from "@/components/results/AnalysisResultView";
+import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
@@ -104,14 +105,14 @@ export default function Home() {
   const showHero = !analysisResult && !isLoading;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c]">
+    <div className="min-h-screen bg-black">
       <AppHeader />
 
       {showHero && (
-        <section className="border-b border-white/6 bg-[#0a0a0c] py-16 text-center">
+        <section className="border-b border-white/6 bg-black py-16 text-center">
           <div className="mx-auto max-w-2xl px-6">
             <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs font-medium text-[#9a9aa4]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#52bdff]" />
               멀티모델 AI 이미지 분석
             </span>
             <h1 className="mt-3 text-4xl font-bold tracking-tight text-[#f4f4f6] lg:text-5xl">이 이미지, 진짜일까요?</h1>
@@ -132,7 +133,7 @@ export default function Home() {
                 type="button"
                 onClick={() => setInputMode("file")}
                 className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  inputMode === "file" ? "border-[#3b82f6] bg-[#3b82f6] text-white" : "border-white/14 bg-white/8 text-[#e5e5ea] hover:bg-white/16"
+                  inputMode === "file" ? "border-[#52bdff] bg-[#52bdff] text-white" : "border-white/14 bg-white/8 text-[#e5e5ea] hover:bg-white/16"
                 }`}
               >
                 <Upload className="h-4 w-4" />
@@ -142,7 +143,7 @@ export default function Home() {
                 type="button"
                 onClick={() => setInputMode("url")}
                 className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                  inputMode === "url" ? "border-[#3b82f6] bg-[#3b82f6] text-white" : "border-white/14 bg-white/8 text-[#e5e5ea] hover:bg-white/16"
+                  inputMode === "url" ? "border-[#52bdff] bg-[#52bdff] text-white" : "border-white/14 bg-white/8 text-[#e5e5ea] hover:bg-white/16"
                 }`}
               >
                 <Link2 className="h-4 w-4" />
@@ -172,7 +173,7 @@ export default function Home() {
                     setImageUrlInput(e.target.value);
                     setErrorMessage(null);
                   }}
-                  className="w-full rounded-xl border border-white/14 bg-black/20 px-4 py-3 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/25"
+                  className="w-full rounded-xl border border-white/14 bg-black/20 px-4 py-3 text-sm text-[#f4f4f6] placeholder-[#6b6b76] outline-none transition focus:border-[#52bdff] focus:ring-2 focus:ring-[#52bdff]/25"
                 />
                 <p className="mt-2 text-xs text-[#6b6b76]">공개적으로 접근 가능한 이미지 URL을 입력하세요.</p>
               </div>
@@ -186,7 +187,7 @@ export default function Home() {
               type="button"
               onClick={handleAnalyze}
               disabled={isLoading}
-              className="mt-4 h-[52px] w-full rounded-[14px] bg-[#3b82f6] text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(59,130,246,0.35)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
+              className="mt-4 h-[52px] w-full rounded-[14px] bg-[#52bdff] text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
             >
               {isLoading ? "분석 중…" : "분석 시작"}
             </button>
@@ -200,7 +201,13 @@ export default function Home() {
         )}
 
         {analysisResult && !isLoading && (
-          <AnalysisResultView analysisResult={analysisResult} previewUrl={previewUrl} errorMessage={errorMessage} onReset={handleReset} />
+          <AnalysisResultView
+            analysisResult={analysisResult}
+            previewUrl={previewUrl}
+            errorMessage={errorMessage}
+            onReset={handleReset}
+            returnPath={`/result/${analysisResult.request_id}`}
+          />
         )}
 
         {showHero && (
@@ -218,6 +225,8 @@ export default function Home() {
           </section>
         )}
       </main>
+
+      <AppFooter />
     </div>
   );
 }
