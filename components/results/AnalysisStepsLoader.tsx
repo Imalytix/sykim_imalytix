@@ -155,8 +155,11 @@ export default function AnalysisStepsLoader({ active }: AnalysisStepsLoaderProps
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm" role="status" aria-live="polite">
-      {/* 실제로 보이는 건 크로마키+크롭 처리된 canvas — video 자체는 프레임 소스로만 사용 */}
-      <video ref={videoRef} src="/loading.mp4" autoPlay loop muted playsInline className="hidden" />
+      {/* 실제로 보이는 건 크로마키+크롭 처리된 canvas — video 자체는 프레임 소스로만 사용.
+          display:none(Tailwind hidden)으로 숨기면 브라우저가 화면에 없는 video의 프레임
+          디코딩을 멈춰버려 캔버스가 첫 프레임에서 정지해 보이는 문제가 있었음 — 레이아웃에는
+          남기되(1px, opacity 0) 화면에는 안 보이게 해서 계속 디코딩되도록 함. */}
+      <video ref={videoRef} src="/loading.mp4" autoPlay loop muted playsInline className="pointer-events-none absolute h-px w-px opacity-0" />
       <canvas ref={canvasRef} className="h-44 w-44 object-contain sm:h-56 sm:w-56" />
       <p className="mt-4 text-[17px] font-bold text-[#f4f4f6]">이미지를 분석하고 있습니다.</p>
       <p className="mt-1.5 text-sm text-[#9a9aa4]">여러 AI 모델과 메타데이터를 함께 확인하는 중입니다.</p>

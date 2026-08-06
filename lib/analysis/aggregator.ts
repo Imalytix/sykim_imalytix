@@ -9,6 +9,15 @@ const VISUAL_EVIDENCE_POINTS: Record<string, number> = { high: 5, medium: 3, low
 // 그 값으로 덮어쓰지는 않음 — 여전히 여러 모델을 종합한다는 취지는 유지).
 const STRONG_AI_SCORE_THRESHOLD = 0.8;
 
+// 아래 "모델 합의 보너스"와 "시각 근거 보너스/페널티"는 둘 다 각 모델이 이미
+// 자기 score에 반영한 판단(및 그 근거)을 한 번 더 가산/감산하는 구조라, 3개
+// 모델이 전부 20~30%대의 "실제에 가깝다"는 애매한 점수를 냈을 뿐인데도 두
+// 보정이 겹쳐 최종 점수가 0까지 떨어지는 경우가 있었다(개별 점수 대비 지나치게
+// 극단적으로 보임). 두 보정폭을 줄여 평균 점수에서 너무 멀리 벗어나지 않게 함.
+const CONSENSUS_AI_BONUS_PER_MODEL = 4; // 기존 10
+const CONSENSUS_REAL_PENALTY = 3; // 기존 8
+const VISUAL_EVIDENCE_CAP = 10; // 기존 25
+
 // Smaller cap than the ±25 vision-evidence swing (below) — a similar past
 // image is a weaker, indirect signal than this request's own models
 // actually looking at it, so it should nudge, not dominate, the score.
@@ -141,15 +150,15 @@ export function aggregateAnalysis(
     const aiAgree = Math.max(aiAgreeScore, aiAgreeVerdict);
     const realAgree = allScores.filter((s) => s <= 0.3).length;
 
-    if (aiAgree >= 2) finalScore += 10 * aiAgree;
+    if (aiAgree >= 2) finalScore += CONSENSUS_AI_BONUS_PER_MODEL * aiAgree;
     // 강한 단일 AI 신호가 있으면, 나머지 2개가 "실제 같다"고 봤다는 이유만으로
     // 페널티를 주지 않는다 — 한 모델의 확신에 찬 AI 판정을 나머지 다수결로
     // 뒤집는 셈이 되어 이번 조정의 취지와 어긋남.
-    else if (realAgree >= 2 && !hasStrongAiSignal) finalScore -= 8;
+    else if (realAgree >= 2 && !hasStrongAiSignal) finalScore -= CONSENSUS_REAL_PENALTY;
   }
 
-  // 3. 시각 근거 보너스/페널티 (최대 ±25점 — 방향은 위 direction 참고)
-  finalScore += Math.max(-25, Math.min(visualScore, 25));
+  // 3. 시각 근거 보너스/페널티 (방향은 위 direction 참고)
+  finalScore += Math.max(-VISUAL_EVIDENCE_CAP, Math.min(visualScore, VISUAL_EVIDENCE_CAP));
 
   // 4. 유사 이미지 이력 보너스/페널티 (최대 ±15점) — 과거에 분석한 유사 이미지가
   // AI 생성으로 판정됐다면 이번 이미지도 AI일 가능성을 소폭 높이고, 반대도 마찬가지.
