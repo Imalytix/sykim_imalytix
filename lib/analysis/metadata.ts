@@ -123,6 +123,49 @@ function readPngTextChunks(buffer: Buffer): Record<string, string> {
   return chunks;
 }
 
+/** JPEG APP11 (0xFFEB) segments whose payload starts with the ASCII "JP"
+ *  Common Identifier carry a JUMBF box, per ISO/IEC 19566-5 — this is exactly
+ *  the mechanism C2PA's JPEG embedding spec uses to store a manifest store.
+ *  We only check for presence here (not full box-tree parsing or signature
+ *  validation), same scope as the EXIF/PNG detection above. */
+function jpegHasJumbfAppSegment(buffer: Buffer): boolean {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return false;
+  let offset = 2;
+  while (offset + 2 <= buffer.length) {
+    if (buffer[offset] !== 0xff) break;
+    const marker = buffer[offset + 1];
+    // Markers with no payload (RST0-7, SOI/EOI, TEM) — advance past the marker only.
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      offset += 2;
+      continue;
+    }
+    if (marker === 0xda) break; // SOS — compressed scan data follows; no more header segments.
+    if (offset + 4 > buffer.length) break;
+    const segmentLength = buffer.readUInt16BE(offset + 2);
+    if (marker === 0xeb && segmentLength >= 4 && buffer.toString("ascii", offset + 4, offset + 6) === "JP") {
+      return true;
+    }
+    offset += 2 + segmentLength;
+  }
+  return false;
+}
+
+/** PNG stores a C2PA manifest store in a private ancillary chunk named
+ *  "caBX", per C2PA's PNG embedding spec. Presence-only check, reusing the
+ *  same chunk-walking shape as readPngTextChunks() above. */
+function pngHasC2paChunk(buffer: Buffer): boolean {
+  if (buffer.length < 8 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return false;
+  let offset = 8;
+  while (offset + 8 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    if (type === "caBX") return true;
+    if (type === "IEND") break;
+    offset += 8 + length + 4; // data + CRC
+  }
+  return false;
+}
+
 export async function analyzeMetadata(
   imageBuffer: Buffer,
   options: {
@@ -275,12 +318,14 @@ export async function analyzeMetadata(
     limitations.push("메타데이터 부재는 흔한 상황이며 단독으로는 판정 근거가 되지 않습니다.");
   }
 
+  const c2paFound = isPng ? pngHasC2paChunk(imageBuffer) : jpegHasJumbfAppSegment(imageBuffer);
+
   score = Math.max(0, Math.min(100, score));
 
   return {
     exif_found: exifFound,
     png_metadata_found: pngMetadataFound,
-    c2pa_found: false,
+    c2pa_found: c2paFound,
     ai_tool_detected: aiToolDetected,
     detected_tools: detectedTools,
     metadata_score: score,

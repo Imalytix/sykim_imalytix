@@ -3,6 +3,12 @@ import type { FinalResult, MetadataAnalysis, SimilarImageMatch, SuspiciousRegion
 const CONFIDENCE_WEIGHTS: Record<string, number> = { high: 1.0, medium: 0.7, low: 0.4 };
 const VISUAL_EVIDENCE_POINTS: Record<string, number> = { high: 5, medium: 3, low: 1 };
 
+// 3개 모델 평균만 쓰면, 한 모델이 매우 강하게 AI로 판단해도 나머지 2개가
+// 애매/실사 쪽이면 평균에 묻혀버림 — 단일 모델의 강한 신호도 최종 점수에
+// 충분히 반영되도록, 그 신호를 평균과 블렌딩해 반영 비중을 높임(완전히
+// 그 값으로 덮어쓰지는 않음 — 여전히 여러 모델을 종합한다는 취지는 유지).
+const STRONG_AI_SCORE_THRESHOLD = 0.8;
+
 // Smaller cap than the ±25 vision-evidence swing (below) — a similar past
 // image is a weaker, indirect signal than this request's own models
 // actually looking at it, so it should nudge, not dominate, the score.
@@ -115,8 +121,18 @@ export function aggregateAnalysis(
       ? weightedScores.reduce((sum, [s, , w]) => sum + s * w, 0) / totalWeight
       : 0;
 
-    const multiplier = visionMultiplier(avgVisionScore, dominantConfidence, activeSignals);
-    finalScore += avgVisionScore * multiplier;
+    // 신뢰도가 낮지 않은(medium/high) 모델 중 가장 강하게 "AI 같다"고 본 점수.
+    // 이게 임계값을 넘으면, 평균만으로 계산했을 때보다 최종 점수에 훨씬 크게
+    // 반영되도록 평균과 50:50으로 블렌딩한다 — 3개 중 1개만 확신에 찬 AI
+    // 판정을 내려도 나머지 2개의 애매한 판정에 묻히지 않게 하기 위함.
+    const strongAiSignal = weightedScores
+      .filter(([, confidence]) => confidence !== "low")
+      .reduce((max, [s]) => Math.max(max, s), 0);
+    const hasStrongAiSignal = strongAiSignal >= STRONG_AI_SCORE_THRESHOLD;
+    const effectiveVisionScore = hasStrongAiSignal ? (avgVisionScore + strongAiSignal) / 2 : avgVisionScore;
+
+    const multiplier = visionMultiplier(effectiveVisionScore, dominantConfidence, activeSignals);
+    finalScore += effectiveVisionScore * multiplier;
 
     // 모델 합의 보너스
     const allScores = weightedScores.map(([s]) => s);
@@ -126,7 +142,10 @@ export function aggregateAnalysis(
     const realAgree = allScores.filter((s) => s <= 0.3).length;
 
     if (aiAgree >= 2) finalScore += 10 * aiAgree;
-    else if (realAgree >= 2) finalScore -= 8;
+    // 강한 단일 AI 신호가 있으면, 나머지 2개가 "실제 같다"고 봤다는 이유만으로
+    // 페널티를 주지 않는다 — 한 모델의 확신에 찬 AI 판정을 나머지 다수결로
+    // 뒤집는 셈이 되어 이번 조정의 취지와 어긋남.
+    else if (realAgree >= 2 && !hasStrongAiSignal) finalScore -= 8;
   }
 
   // 3. 시각 근거 보너스/페널티 (최대 ±25점 — 방향은 위 direction 참고)

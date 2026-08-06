@@ -7,11 +7,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 
-/** Matches the design handoff's GNB exactly: logo, Home/About us/FAQ nav,
- *  and — depending on auth state — either "Login" + "Sign in" + "Download"
- *  or "Logout" + "Download" on the right. */
+/** GNB: logo, Home/About us/FAQ nav, and — depending on auth state — either
+ *  "Sign in" (starts Google OAuth directly) + "Download", or "Logout" +
+ *  "Download" on the right. */
 export default function AppHeader() {
   const [user, setUser] = useState<User | null>(null);
+  const [signInPending, setSignInPending] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -27,6 +28,23 @@ export default function AppHeader() {
   const handleSignOut = async () => {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
+  };
+
+  // "Sign in"이 /login 페이지를 거치지 않고 헤더에서 바로 구글 로그인을
+  // 시작합니다 — 별도 "Login" 텍스트 링크는 같은 동작의 중복이라 제거했습니다.
+  // (/login 페이지 자체는 계속 존재 — /history 등에서 "next=" 리다이렉트로
+  // 진입하는 경로는 그대로 유효합니다.)
+  const handleSignIn = async () => {
+    setSignInPending(true);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      setSignInPending(false);
+      alert(`로그인을 시작할 수 없습니다: ${error.message}`);
+    }
   };
 
   return (
@@ -61,18 +79,15 @@ export default function AppHeader() {
               Logout
             </button>
           ) : (
-            <>
-              <Link href="/login" className="hidden text-sm font-medium text-white transition-opacity hover:opacity-80 sm:inline">
-                Login
-              </Link>
-              <Link
-                href="/login"
-                className="flex items-center gap-1.5 rounded-lg bg-[#696969] px-3 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
-              >
-                <UserRound className="h-3.5 w-3.5" />
-                Sign in
-              </Link>
-            </>
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={signInPending}
+              className="flex items-center gap-1.5 rounded-lg bg-[#696969] px-3 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              {signInPending ? "이동 중…" : "Sign in"}
+            </button>
           )}
           {user && (
             <Link href="/history" className="hidden text-sm font-medium text-white transition-opacity hover:opacity-80 sm:inline">

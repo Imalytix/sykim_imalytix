@@ -75,6 +75,9 @@ export default function Home() {
     setSelectedFile(null);
     setPreviewUrl(null);
     setErrorMessage(null);
+    // 결과 화면은 히어로 업로드 영역보다 페이지 아래쪽에 있으므로, 리셋 후
+    // 다시 나타나는 히어로(업로드 박스)가 보이도록 맨 위로 스크롤합니다.
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const showHero = !analysisResult && !isLoading;
@@ -134,11 +137,7 @@ export default function Home() {
       )}
 
       <main className="mx-auto w-full max-w-5xl px-6 py-10">
-        {isLoading && (
-          <div className="mx-auto max-w-2xl">
-            <AnalysisStepsLoader active={isLoading} />
-          </div>
-        )}
+        <AnalysisStepsLoader active={isLoading} />
 
         {analysisResult && !isLoading && (
           <AnalysisResultView

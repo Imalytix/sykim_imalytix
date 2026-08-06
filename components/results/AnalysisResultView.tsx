@@ -14,6 +14,12 @@ import { clampPercent } from "@/lib/utils/score";
 
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = { openai: "OpenAI", gemini: "Gemini", claude: "Claude" };
 
+const SEVERITY_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
+  high: { label: "위험도 높음", badge: "bg-[#f23e3e]/10 text-[#c81e1e]", dot: "bg-[#f23e3e]" },
+  medium: { label: "위험도 보통", badge: "bg-[#ffca1a]/15 text-[#8a6400]", dot: "bg-[#ffca1a]" },
+  low: { label: "위험도 낮음", badge: "bg-[#52bdff]/10 text-[#1a6fb0]", dot: "bg-[#52bdff]" },
+};
+
 /** "핵심 결과" row — icon-circle + title/sub (inside the white card, light). */
 function KeyFindingRow({ ok, title, sub }: { ok: boolean; title: string; sub: string }) {
   return (
@@ -92,6 +98,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
   const [showDetail, setShowDetail] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [loginPending, setLoginPending] = useState(false);
+  const [selectedRegionIndex, setSelectedRegionIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -188,27 +195,75 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
           <div className="flex flex-col gap-6 md:flex-row">
             {/* 좌측: 이미지 + 의심 부위 오버레이 */}
             <div className="shrink-0 md:w-[300px]">
-              <div className="relative overflow-hidden rounded-2xl bg-[#f2f2f2]">
-                {previewUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- data:/signed URL, next/image adds no value here
-                  <img src={previewUrl} alt="분석 대상 이미지" className="block w-full" />
-                )}
-                {previewUrl &&
-                  suspiciousRegions.map((region, i) =>
-                    isValidBBox(region.bbox) ? (
-                      <div
-                        key={i}
-                        className="absolute rounded-md border-2 border-[#f23e3e]"
-                        style={{
-                          left: `${region.bbox.x1 * 100}%`,
-                          top: `${region.bbox.y1 * 100}%`,
-                          width: `${(region.bbox.x2 - region.bbox.x1) * 100}%`,
-                          height: `${(region.bbox.y2 - region.bbox.y1) * 100}%`,
-                        }}
-                      />
-                    ) : null,
+              <div className="relative">
+                {/* 이미지 자체만 overflow-hidden — 아래 오버레이 레이어는 별도로 둬서
+                    가장자리에 붙는 바운딩 박스의 모서리 핸들이 잘리지 않게 함 */}
+                <div className="overflow-hidden rounded-2xl bg-[#f2f2f2]">
+                  {previewUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- data:/signed URL, next/image adds no value here
+                    <img src={previewUrl} alt="분석 대상 이미지" className="block w-full" />
                   )}
+                </div>
+                {previewUrl && suspiciousRegions.length > 0 && (
+                  <div className="pointer-events-none absolute inset-0">
+                    {suspiciousRegions.map((region, i) =>
+                      isValidBBox(region.bbox) ? (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setSelectedRegionIndex((prev) => (prev === i ? null : i))}
+                          aria-label={`의심 부위 ${i + 1}: ${region.label} — 설명 보기`}
+                          aria-pressed={selectedRegionIndex === i}
+                          className={`pointer-events-auto absolute rounded-md border-2 transition-colors ${
+                            selectedRegionIndex === i ? "border-[#1a6fb0] bg-[#52bdff]/20" : "border-[#52bdff] hover:bg-[#52bdff]/10"
+                          }`}
+                          style={{
+                            left: `${region.bbox.x1 * 100}%`,
+                            top: `${region.bbox.y1 * 100}%`,
+                            width: `${(region.bbox.x2 - region.bbox.x1) * 100}%`,
+                            height: `${(region.bbox.y2 - region.bbox.y1) * 100}%`,
+                          }}
+                        >
+                          {/* 모서리 핸들 — 디자인 목업의 선택 박스 스타일 */}
+                          <span
+                            className={`absolute -top-1 -left-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
+                          />
+                          <span
+                            className={`absolute -top-1 -right-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
+                          />
+                          <span
+                            className={`absolute -bottom-1 -left-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
+                          />
+                          <span
+                            className={`absolute -bottom-1 -right-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
+                          />
+                        </button>
+                      ) : null,
+                    )}
+                  </div>
+                )}
               </div>
+
+              {selectedRegionIndex === null && suspiciousRegions.some((r) => isValidBBox(r.bbox)) && (
+                <p className="mt-2.5 text-center text-[12px] text-[#9a9aa4]">표시된 박스를 클릭하면 의심 근거를 볼 수 있어요.</p>
+              )}
+
+              {selectedRegionIndex !== null && suspiciousRegions[selectedRegionIndex] && (
+                <div className="mt-2.5 rounded-xl border border-black/6 bg-black/[0.02] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-bold text-[#1a1a1a]">{suspiciousRegions[selectedRegionIndex].label}</span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        SEVERITY_CONFIG[suspiciousRegions[selectedRegionIndex].severity]?.badge ?? SEVERITY_CONFIG.low.badge
+                      }`}
+                    >
+                      {SEVERITY_CONFIG[suspiciousRegions[selectedRegionIndex].severity]?.label ?? SEVERITY_CONFIG.low.label}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[12.5px] leading-5 text-[#5a5a5a]">{suspiciousRegions[selectedRegionIndex].description}</p>
+                </div>
+              )}
+
               <p className="mt-2.5 text-center text-[13px] text-[#8a8a8a]">
                 {analysisResult.input.width}×{analysisResult.input.height} · {analysisResult.input.mime_type}
               </p>

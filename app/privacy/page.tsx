@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import AppHeader from "@/components/layout/AppHeader";
 
 export const metadata: Metadata = {
@@ -242,9 +241,12 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <div className="mt-12 border-t border-white/8 pt-6">
-          <Link href="/" className="text-sm text-[#60a5fa] hover:underline">
+          {/* 일반 <a> 의도적 사용 — 홈 화면이 분석 결과를 보여주던 중이었어도
+              항상 확실하게 초기 상태로 돌아가도록 풀 리로드 (AppHeader.tsx와 동일 이유) */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/" className="text-sm text-[#60a5fa] hover:underline">
             ← 홈으로 돌아가기
-          </Link>
+          </a>
         </div>
       </main>
     </div>

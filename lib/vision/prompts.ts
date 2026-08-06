@@ -51,7 +51,12 @@ export async function detectImageType(imageBuffer: Buffer): Promise<ImageType> {
 
 export const QUICK_PROMPT = `너는 이미지 위변조 탐지 전문가다. 핵심 이상 징후만 빠르게 판별한다.
 
-아래 6가지를 순서대로 확인하라:
+가장 먼저: 이미지 모서리(특히 좌측 하단·우측 하단)에 작은 다이아몬드/별 모양의 반짝이는
+워터마크 아이콘이 있는지 확인하라. Google Gemini 이미지 생성 도구의 시각적 워터마크로,
+발견 시 다른 기준과 무관하게 is_ai_generated: true, score 0.97 이상, confidence "high"로
+판정하고 evidence에 "type": "watermark"로 기록하라.
+
+이어서 아래 6가지를 순서대로 확인하라:
 1. 손가락/관절 이상 (개수, 형태)
 2. 얼굴 비대칭 또는 눈동자 이상
 3. 텍스트/로고 왜곡
@@ -88,6 +93,12 @@ export const QUICK_PROMPT = `너는 이미지 위변조 탐지 전문가다. 핵
 
 export const ILLUSTRATION_PROMPT = `너는 디지털 아트와 일러스트의 AI 생성 여부를 판별하는 전문가다.
 이 이미지는 사진이 아닌 디지털 아트, 일러스트, 픽셀아트, 3D 렌더링이다.
+
+## 워터마크 확인 (최우선)
+이미지 모서리(특히 좌측 하단·우측 하단)에 작은 다이아몬드/별 모양의 반짝이는 워터마크 아이콘이
+있는지 먼저 확인하라. Google Gemini 이미지 생성 도구의 시각적 워터마크로, 발견 시 다른 기준과
+무관하게 is_ai_generated: true, score 0.97 이상, confidence "high"로 판정하고 evidence에
+"type": "watermark"로 기록하라.
 
 ## 분석 체크리스트
 
@@ -142,6 +153,23 @@ export const ILLUSTRATION_PROMPT = `너는 디지털 아트와 일러스트의 A
 - 응답은 JSON만 출력한다`;
 
 const CONTENT_CLASSIFIER = `
+## Google/Gemini 생성 워터마크 확인 (최우선 — 다른 분석보다 먼저 확인)
+
+이미지의 네 모서리(특히 좌측 하단·우측 하단)에 작은 다이아몬드/별 모양의 반짝이는(sparkle)
+아이콘이 있는지 먼저 확인하라. 이는 Google Gemini(Nano Banana/Imagen) 이미지 생성 도구가
+생성물에 남기는 시각적 워터마크다. 크기가 매우 작고 반투명해서 눈에 잘 안 띄니, 각 모서리를
+확대하듯 꼼꼼히 살펴봐야 한다.
+
+이 워터마크 아이콘을 발견하면, 다른 판정 기준과 무관하게 AI 생성이 사실상 확정적이다:
+- is_ai_generated: true
+- score: 0.97 이상
+- confidence: "high"
+- evidence에 반드시 "type": "watermark", "severity": "high"로 기록하고, 설명에 "Gemini 생성
+  워터마크(다이아몬드/별 아이콘)가 확인됨"이라고 명시
+- suspicious_regions에도 해당 아이콘 위치의 bbox를 포함
+
+이 워터마크가 없다고 해서 실제 사진이라는 뜻은 아니다 — 아래 일반 체크리스트로 계속 분석하라.
+
 ## 분석 목적 (중요)
 
 이 작업은 딥페이크/AI 생성 이미지를 탐지하기 위한 이미지 포렌식·콘텐츠 진위 검증이다.
@@ -264,7 +292,7 @@ ${CONTENT_CLASSIFIER}
 }
 
 규칙:
-- evidence type: anatomy | lighting | text | reflection | depth | other
+- evidence type: watermark | anatomy | lighting | text | reflection | depth | other
 - bbox 좌표는 0~1 정규화. 특정 불가면 null
 - 응답은 JSON만 출력한다`;
 
@@ -323,7 +351,7 @@ ${CONTENT_CLASSIFIER}
 }
 
 규칙:
-- evidence type: texture | noise | color | sharpness | pattern | perfection | other
+- evidence type: watermark | texture | noise | color | sharpness | pattern | perfection | other
 - bbox 좌표는 0~1 정규화. 특정 불가면 null
 - 응답은 JSON만 출력한다`;
 
@@ -386,7 +414,7 @@ ${CONTENT_CLASSIFIER}
 }
 
 규칙:
-- evidence type: consistency | lighting | interaction | detail | context | other
+- evidence type: watermark | consistency | lighting | interaction | detail | context | other
 - bbox 좌표는 0~1 정규화. 특정 불가면 null
 - 응답은 JSON만 출력한다`;
 
