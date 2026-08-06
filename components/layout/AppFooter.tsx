@@ -1,7 +1,10 @@
 import Image from "next/image";
+import Link from "next/link";
 
-/** Matches the design handoff's footer exactly — contact block + disclaimer,
- *  then a large logo lockup + copyright line. */
+/** Matches the design handoff's footer — contact block + disclaimer, a small
+ *  page-link row (added for About/FAQ/Privacy discoverability — Chrome Web
+ *  Store and Google OAuth consent both require a reachable privacy policy
+ *  link), then the large logo lockup + copyright line. */
 export default function AppFooter() {
   return (
     <footer className="border-t border-white/8 bg-black px-6 py-12">
@@ -17,6 +20,23 @@ export default function AppFooter() {
             Imalytix는 확률을 기반으로 결과를 제공합니다. 탐지 결과가 완벽하지 않을 수 있으니, 최종 판단은 신중히 내려 주시기 바랍니다.
           </p>
         </div>
+
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-[#9a9aa4] sm:justify-start">
+          {/* 일반 <a> 의도적 사용 — AppHeader.tsx의 로고/Home 링크와 같은 이유(홈에서 홈 클릭 시 풀 리로드로 상태 초기화) */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/" className="hover:text-white">
+            Home
+          </a>
+          <Link href="/about" className="hover:text-white">
+            About us
+          </Link>
+          <Link href="/faq" className="hover:text-white">
+            FAQ
+          </Link>
+          <Link href="/privacy" className="hover:text-white">
+            개인정보처리방침
+          </Link>
+        </nav>
 
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-3">
