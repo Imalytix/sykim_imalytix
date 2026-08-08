@@ -105,7 +105,12 @@ export async function analyzeImageBytes(params: {
   const isPng = originalMeta.format === "png";
 
   const longSide = Number(process.env.IMAGE_LONG_SIDE || 1024);
-  const preprocessed = await preprocessImage(imageBytes, longSide);
+  // 위 originalMeta 체크는 헤더만 읽어서 잘리거나 손상된 파일도 통과시킬 수 있음
+  // (width/height는 파일 앞부분에 있어 뒷부분이 잘려도 읽힘) — 실제 픽셀
+  // 디코딩은 여기서 처음 일어나므로, 손상이 여기서 드러나면 명확한 400으로 변환.
+  const preprocessed = await preprocessImage(imageBytes, longSide).catch(() => {
+    throw new ImageValidationError("이미지 파일이 손상되었거나 불완전합니다. 파일을 다시 확인해주세요.");
+  });
   const phash = await generatePHash(preprocessed.buffer);
 
   // Awaited here (not fire-and-forget) — unlike before, the exact-duplicate
