@@ -8,7 +8,14 @@ import { useRef, useState } from "react";
 // app/api/analyze/image/route.ts) — this is a UX shortcut only, not a
 // security boundary; the server enforces its own limit regardless of what
 // the client sends.
-const MAX_FILE_SIZE_MB = 10;
+//
+// Capped below Vercel's hard 4.5MB request/response body limit for
+// Serverless Functions (not configurable, applies regardless of plan —
+// https://vercel.com/docs/functions/limitations#request-body-size). A
+// higher app-level limit here would let uploads pass this check but still
+// get killed by Vercel's platform layer before our route code ever runs,
+// with a non-JSON error response.
+const MAX_FILE_SIZE_MB = 4;
 
 interface ImageUploaderProps {
   previewUrl: string | null;

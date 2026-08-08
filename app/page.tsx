@@ -40,8 +40,16 @@ async function analyzeImageFile(file: File): Promise<AnalysisResult> {
   formData.append("mode", "standard");
 
   const response = await fetch("/api/analyze/image", { method: "POST", body: formData });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.detail ?? "분석에 실패했습니다.");
+  // Vercel이 요청/응답 본문이 4.5MB를 넘으면 우리 라우트 코드가 실행되기도
+  // 전에 플랫폼 레벨에서 JSON이 아닌 응답(예: "Request Entity Too Large")을
+  // 돌려줄 수 있음 — response.json()이 그대로 SyntaxError를 던지면 사용자가
+  // 원인 모를 파싱 에러 문구를 그대로 보게 되므로 안전하게 처리.
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (response.status === 413) throw new Error("이미지 파일이 너무 큽니다. 더 작은 파일을 선택해주세요.");
+    throw new Error(data?.detail ?? "분석에 실패했습니다.");
+  }
+  if (!data) throw new Error("서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.");
   return data as AnalysisResult;
 }
 

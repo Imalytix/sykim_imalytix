@@ -49,7 +49,12 @@ export async function POST(request: NextRequest) {
   // exhaustion) is already done. Requests without a Content-Length header
   // (e.g. chunked transfer-encoding) fall through to the post-buffering
   // check, which is a known gap of this header-based approach.
-  const maxBytes = Number(process.env.MAX_FILE_SIZE_MB || 10) * 1024 * 1024;
+  // 기본값 4MB — Vercel Serverless Function의 요청/응답 본문 4.5MB 하드 리밋보다
+  // 낮게 잡아야, 그 한도를 넘는 요청이 우리 코드까지 오기 전에 플랫폼에서
+  // JSON이 아닌 응답으로 끊기는(클라이언트에서 파싱 에러로 보이는) 상황을
+  // 피할 수 있음. (https://vercel.com/docs/functions/limitations#request-body-size)
+  const maxMb = Number(process.env.MAX_FILE_SIZE_MB || 4);
+  const maxBytes = maxMb * 1024 * 1024;
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > maxBytes) {
     await recordVerification({
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
       context,
       inputType: "file_upload",
       mode: "standard",
-      errorMessage: `요청 본문이 너무 큽니다 (Content-Length ${(declaredLength / (1024 * 1024)).toFixed(1)}MB > ${process.env.MAX_FILE_SIZE_MB || 10}MB).`,
+      errorMessage: `요청 본문이 너무 큽니다 (Content-Length ${(declaredLength / (1024 * 1024)).toFixed(1)}MB > ${maxMb}MB).`,
     });
     return NextResponse.json({ detail: "이미지 파일이 너무 큽니다." }, { status: 413 });
   }
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest) {
       inputType: "file_upload",
       mode,
       filename: file.name,
-      errorMessage: `이미지 파일이 너무 큽니다 (${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(1)}MB > ${process.env.MAX_FILE_SIZE_MB || 10}MB).`,
+      errorMessage: `이미지 파일이 너무 큽니다 (${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(1)}MB > ${maxMb}MB).`,
     });
     return NextResponse.json({ detail: "이미지 파일이 너무 큽니다." }, { status: 400 });
   }
