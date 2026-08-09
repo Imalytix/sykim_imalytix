@@ -9,18 +9,22 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
-// 히어로 위쪽에 아치 모양으로 흩어진 실제 사진들 — 참고 프로토타입의 hero__ring과
-// 같은 아이디어지만, 완전한 원이 아니라 위쪽 절반만 쓰는 아치이고, 각도 간격도
-// 일부러 고르지 않게 잡음(전부 같은 간격으로 붙어있으면 기계적으로 보임).
+// 히어로 위쪽에 아치 모양으로 흩어진 실제 사진들. 반지름/각도로 계산하는
+// 원 배치는 우리 히어로처럼 세로 공간이 짧은 섹션에서는 중앙(0도에 가까운)
+// 카드가 섹션 바깥으로 밀려 올라가 통째로 사라지는 문제가 계속 나서(참고
+// 프로토타입은 100vh 고정 히어로라 반지름을 크게 써도 괜찮지만 우리는 아님),
+// 좌표를 직접 지정하는 방식으로 바꿈 — left는 % (화면 폭에 비례해 반응형),
+// top은 px(섹션 상단에서 고정 거리)로 둬서 카드가 섹션 밖으로 사라질 일이
+// 없도록 항상 안전한 범위 안에 있음.
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", angle: -84 },
-  { src: "/hero-photos/hero-2.jpg", angle: -61 },
-  { src: "/hero-photos/hero-3.jpg", angle: -41 },
-  { src: "/hero-photos/hero-4.jpg", angle: -15 },
-  { src: "/hero-photos/hero-5.jpg", angle: 8 },
-  { src: "/hero-photos/hero-6.jpg", angle: 27 },
-  { src: "/hero-photos/hero-7.jpg", angle: 55 },
-  { src: "/hero-photos/hero-8.jpg", angle: 81 },
+  { src: "/hero-photos/hero-1.jpg", leftPct: 15, topPx: 165, rotate: -9 },
+  { src: "/hero-photos/hero-2.jpg", leftPct: 27, topPx: 105, rotate: -6 },
+  { src: "/hero-photos/hero-3.jpg", leftPct: 37, topPx: 70, rotate: -4 },
+  { src: "/hero-photos/hero-4.jpg", leftPct: 46, topPx: 55, rotate: 2 },
+  { src: "/hero-photos/hero-5.jpg", leftPct: 55, topPx: 58, rotate: -3 },
+  { src: "/hero-photos/hero-6.jpg", leftPct: 64, topPx: 80, rotate: 5 },
+  { src: "/hero-photos/hero-7.jpg", leftPct: 74, topPx: 115, rotate: 7 },
+  { src: "/hero-photos/hero-8.jpg", leftPct: 86, topPx: 160, rotate: 9 },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -88,39 +92,6 @@ export default function Home() {
       window.removeEventListener("scroll", onScroll);
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, []);
-
-  // 아치 카드 반지름/카드 크기를 고정값으로 대충 잡았더니 화면 크기에 따라
-  // 카드끼리 겹치거나 너무 작아지는 문제가 반복됐다 — 참고 프로토타입처럼
-  // 실제 컨테이너 폭을 측정해서 "카드 8장이 겹치지 않는 최대 폭"을 역산하는
-  // 방식으로 바꿈(참고 사이트 main.js의 반지름→카드폭 역산 공식과 동일한
-  // 아이디어, 우리는 원 전체가 아니라 아치 하나만 쓰므로 그에 맞게 조정).
-  const archRef = useRef<HTMLDivElement | null>(null);
-  const [archLayout, setArchLayout] = useState({ radius: 220, cardWidth: 96 });
-  useEffect(() => {
-    const el = archRef.current;
-    if (!el) return;
-
-    const ARC_SPAN_DEG = Math.max(...ARCH_CARDS.map((c) => c.angle)) - Math.min(...ARCH_CARDS.map((c) => c.angle));
-    const ARC_SPAN_RAD = (ARC_SPAN_DEG * Math.PI) / 180;
-    const GAP_RATIO = 1.35; // 카드 폭 대비 카드 사이 중심 간격 — 클수록 여유 있게 벌어짐
-
-    const recompute = () => {
-      const rect = el.getBoundingClientRect();
-      // 중앙 근처 각도(0°에 가까운 카드)는 반지름만큼 거의 그대로 위로
-      // 올라가 피벗(20% 지점) 위로 넘어가 섹션 밖으로 잘릴 수 있는데, 그건
-      // 참고 사이트도 마찬가지로 의도된 모습(헤더 뒤로 살짝 잠기는 느낌)이라
-      // 높이 기준으로는 굳이 반지름을 제한하지 않음 — 폭 기준과 절대 상한만 적용.
-      const maxRadiusByWidth = rect.width * 0.46;
-      const radius = Math.max(120, Math.min(maxRadiusByWidth, 340));
-      const cardWidth = Math.max(64, Math.min((radius * ARC_SPAN_RAD) / (ARCH_CARDS.length * GAP_RATIO), 170));
-      setArchLayout({ radius, cardWidth });
-    };
-
-    recompute();
-    const observer = new ResizeObserver(recompute);
-    observer.observe(el);
-    return () => observer.disconnect();
   }, []);
 
   // "결과만이 아닌..." 예시 카드 — 화면에 스크롤되어 들어올 때마다 0%에서
@@ -245,32 +216,22 @@ export default function Home() {
           {/* 아치형 사진 카드 — 클릭하면 그 사진으로 바로 검증 시작. 전체가
               스크롤에 맞춰 살짝 회전하고, 첫 번째 카드는 스크롤할수록 커지고
               진해지면서 "결과가 나타나는" 듯한 느낌을 줌. */}
-          <div
-            ref={archRef}
-            className="pointer-events-none absolute inset-0 hidden sm:block"
-            style={{ transform: `rotate(${scrollProgress * 22}deg)` }}
-          >
+          <div className="pointer-events-none absolute inset-0 hidden sm:block" style={{ transform: `rotate(${scrollProgress * 22}deg)` }}>
             {ARCH_CARDS.map((c, i) => {
               const isHero = i === 0;
-              const { radius, cardWidth } = archLayout;
-              const cardHeight = cardWidth * 1.22;
-              const baseTransform = `rotate(${c.angle}deg) translateY(-${radius}px) rotate(${-c.angle}deg)`;
+              const baseTransform = `translate(-50%, -50%) rotate(${c.rotate}deg)`;
               return (
                 <button
                   key={c.src}
                   type="button"
                   onClick={() => handleSampleClick(c.src)}
                   aria-label="샘플 이미지로 바로 검증하기"
-                  className={`pointer-events-auto absolute overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
+                  className={`pointer-events-auto absolute h-28 w-24 overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
                     isHero ? "" : "opacity-25 hover:opacity-80 hover:scale-105"
                   }`}
                   style={{
-                    left: "50%",
-                    top: "20%",
-                    width: `${cardWidth}px`,
-                    height: `${cardHeight}px`,
-                    marginLeft: `${-cardWidth / 2}px`,
-                    marginTop: `${-cardHeight / 2}px`,
+                    left: `${c.leftPct}%`,
+                    top: `${c.topPx}px`,
                     transform: isHero ? `${baseTransform} scale(${1 + scrollProgress * 0.7}) translateY(${scrollProgress * 24}px)` : baseTransform,
                     opacity: isHero ? 0.25 + scrollProgress * 0.75 : undefined,
                     zIndex: isHero ? 10 : 1,
