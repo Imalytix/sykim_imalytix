@@ -15,20 +15,22 @@ import type { AnalysisResult } from "@/types/analysis";
 // 회전이 0으로 상쇄돼야 하는데 실제로는 카드가 비스듬히 나오는 문제가
 // 반복돼서 — 원인을 더 파고들기보다, 애초에 회전 합성에 기대지 않는 이
 // 방식이 훨씬 확실하고 검증하기도 쉬움(계산 결과가 눈에 보이는 숫자라서).
-const ARCH_PIVOT_TOP = 340; // px — 전보다 더 내려서 가장 높이 뜨는(각도가 0에
-// 가까운) 카드도 섹션 위쪽에서 넉넉히(약 45px) 떨어지도록 함(전엔 6px 정도라
-// 사실상 거의 잘려 보였음 — "다 보이게 해달라"는 요청 반영).
-const ARCH_RADIUS = 300; // px
-const ARCH_CARD_W = 100; // px — 카드 폭(100)과 각도 간격(약 19~22°)을 함께
-// 조정해서, 호의 길이(반지름×각도)가 카드 폭과 거의 같아지도록 함 — 그래야
-// 카드끼리 겹치지 않고 거의 딱 붙는 정도로만 배치됨.
-const ARCH_CARD_H = 122; // px, ARCH_CARD_W * 1.22
+// 이전엔 각도를 균등 간격으로 나눴는데, 원의 성질상 중심에서 먼(바깥쪽) 카드일수록
+// 같은 각도 차이라도 실제 가로 간격(x)은 더 좁아짐(sin 곡선이 바깥으로 갈수록
+// 평평해짐) — 그래서 계속 바깥쪽 카드끼리만 겹치는 문제가 반복됐음. 대신 원하는
+// 가로 간격(x, 120px 등간격)을 먼저 정하고 거기서 각도를 역산(asin)해서, 카드
+// 위치와 무관하게 실제 화면상 가로 간격이 항상 동일하도록 함.
+const ARCH_RADIUS = 500; // px
+const ARCH_CARD_W = 85; // px
+const ARCH_CARD_H = 104; // px, ARCH_CARD_W * 1.22
+const ARCH_PIVOT_TOP = 577; // px — 아치 중심점(원점) 위치. 섹션 상단에서 봤을 때
+// 실제로는 이 좌표보다 한참 위(가장 높은 카드 top이 섹션 상단에서 약 28px 아래)
+// 에 카드들이 배치됨 — 원의 중심이 눈에 보이는 호 자체보다 훨씬 아래에 있는 것과
+// 같은 이치. pt-96(섹션 상단 패딩 384px)은 그대로 둬도 가장 낮은 카드(약 366px)가
+// 헤드라인 시작 전에 여유 있게 들어감.
 
-// 각도(호 위 위치)와 기울기(카드 자체의 회전)는 서로 다른 목적 — 각도는 카드가
-// "어디에" 있는지, 기울기는 가운데서 멀어질수록 카드가 "얼마나 기울어 보이는지".
-// 기울기는 각도에 비례하게 잡아서, 중앙 카드는 거의 안 기울고 바깥으로 갈수록
-// 점점 더 기울어지는 자연스러운 느낌을 냄.
-function archCard(src: string, angleDeg: number) {
+function archCard(src: string, xOffsetPx: number) {
+  const angleDeg = (Math.asin(xOffsetPx / ARCH_RADIUS) * 180) / Math.PI;
   const rad = (angleDeg * Math.PI) / 180;
   return {
     src,
@@ -39,14 +41,14 @@ function archCard(src: string, angleDeg: number) {
 }
 
 const ARCH_CARDS = [
-  archCard("/hero-photos/hero-1.jpg", -68),
-  archCard("/hero-photos/hero-2.jpg", -46),
-  archCard("/hero-photos/hero-3.jpg", -27),
-  archCard("/hero-photos/hero-4.jpg", -8),
-  archCard("/hero-photos/hero-5.jpg", 10),
-  archCard("/hero-photos/hero-6.jpg", 29),
-  archCard("/hero-photos/hero-7.jpg", 48),
-  archCard("/hero-photos/hero-8.jpg", 68),
+  archCard("/hero-photos/hero-1.jpg", -420),
+  archCard("/hero-photos/hero-2.jpg", -300),
+  archCard("/hero-photos/hero-3.jpg", -180),
+  archCard("/hero-photos/hero-4.jpg", -60),
+  archCard("/hero-photos/hero-5.jpg", 60),
+  archCard("/hero-photos/hero-6.jpg", 180),
+  archCard("/hero-photos/hero-7.jpg", 300),
+  archCard("/hero-photos/hero-8.jpg", 420),
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
