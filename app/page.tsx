@@ -9,6 +9,20 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
+// 히어로 위쪽에 아치 모양으로 흩어진 실제 사진들 — 참고 프로토타입의 hero__ring과
+// 같은 아이디어지만, 완전한 원이 아니라 위쪽 절반만 쓰는 아치이고, 각도 간격도
+// 일부러 고르지 않게 잡음(전부 같은 간격으로 붙어있으면 기계적으로 보임).
+const ARCH_CARDS = [
+  { src: "/hero-photos/hero-1.jpg", angle: -74 },
+  { src: "/hero-photos/hero-2.jpg", angle: -54 },
+  { src: "/hero-photos/hero-3.jpg", angle: -37 },
+  { src: "/hero-photos/hero-4.jpg", angle: -14 },
+  { src: "/hero-photos/hero-5.jpg", angle: 6 },
+  { src: "/hero-photos/hero-6.jpg", angle: 24 },
+  { src: "/hero-photos/hero-7.jpg", angle: 49 },
+  { src: "/hero-photos/hero-8.jpg", angle: 71 },
+];
+
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
 // 잘라낸 정적 이미지 — 배지·문구·일러스트가 전부 그 안에 그려져 있어서 텍스트를
 // 따로 오버레이하지 않고 이미지 자체를 카드로 씀.
@@ -52,6 +66,30 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // 아치 카드 전체가 스크롤에 맞춰 시계방향으로 살짝 돌아가고, 그중 첫 번째
+  // 카드(hero-1)만 스크롤할수록 점점 커지고 진해지면서 "결과처럼" 강조되는
+  // 효과 — 참고 프로토타입의 스크롤 연동 아치를 그대로 재현하는 대신(스크롤
+  // 위치마다 반지름·카드 폭을 실시간 재계산하는 커스텀 물리 엔진이라 깨지기
+  // 쉬움), 스크롤 진행도(0~1)만 계산해서 CSS transform에 흘려보내는 가벼운
+  // 방식으로 단순화.
+  const [scrollProgress, setScrollProgress] = useState(0);
+  useEffect(() => {
+    let rafId: number | null = null;
+    const SCROLL_RANGE_PX = 650;
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        setScrollProgress(Math.min(1, window.scrollY / SCROLL_RANGE_PX));
+        rafId = null;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   // 익스텐션 데모 영상 — 참고 사이트와 동일하게 화면에 보일 때만 재생하고
   // 벗어나면 멈춤(항상 자동재생하는 것보다 배터리/리소스 부담이 적음).
   const extVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -69,21 +107,41 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
-  const handleAnalyze = async () => {
-    if (!selectedFile) {
+  const handleAnalyze = async (fileOverride?: File) => {
+    const file = fileOverride ?? selectedFile;
+    if (!file) {
       setErrorMessage("이미지를 먼저 선택해주세요.");
       return;
     }
     try {
       setErrorMessage(null);
       setIsLoading(true);
-      const result = await analyzeImageFile(selectedFile);
+      const result = await analyzeImageFile(file);
       setPreviewUrl(result.analyzed_image_data_url);
       setAnalysisResult(result);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "분석에 실패했습니다.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 아치 카드를 클릭하면 그 사진을 바로 업로드한 것처럼 분석 시작 — 브라우저가
+  // 우리 자신의 public/ 정적 파일을 fetch해서 File로 감싼 뒤 기존 파일 업로드
+  // 경로를 그대로 재사용.
+  const handleSampleClick = async (src: string) => {
+    try {
+      setErrorMessage(null);
+      const response = await fetch(src);
+      if (!response.ok) throw new Error("샘플 이미지를 불러올 수 없습니다.");
+      const blob = await response.blob();
+      const filename = src.split("/").pop() ?? "sample.jpg";
+      const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+      setSelectedFile(file);
+      setPreviewUrl(src);
+      await handleAnalyze(file);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "샘플 이미지를 불러올 수 없습니다.");
     }
   };
 
@@ -105,6 +163,42 @@ export default function Home() {
 
       {showHero && (
         <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black py-20 text-center">
+          {/* 아치형 사진 카드 — 클릭하면 그 사진으로 바로 검증 시작. 전체가
+              스크롤에 맞춰 살짝 회전하고, 첫 번째 카드는 스크롤할수록 커지고
+              진해지면서 "결과가 나타나는" 듯한 느낌을 줌. */}
+          <div
+            className="pointer-events-none absolute inset-0 hidden sm:block"
+            style={{ transform: `rotate(${scrollProgress * 22}deg)` }}
+          >
+            {ARCH_CARDS.map((c, i) => {
+              const isHero = i === 0;
+              const baseTransform = `rotate(${c.angle}deg) translateY(-165px) rotate(${-c.angle}deg)`;
+              return (
+                <button
+                  key={c.src}
+                  type="button"
+                  onClick={() => handleSampleClick(c.src)}
+                  aria-label="샘플 이미지로 바로 검증하기"
+                  className={`pointer-events-auto absolute h-32 w-28 overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
+                    isHero ? "" : "opacity-35 hover:opacity-85 hover:scale-105"
+                  }`}
+                  style={{
+                    left: "50%",
+                    top: "34%",
+                    marginLeft: "-56px",
+                    marginTop: "-64px",
+                    transform: isHero ? `${baseTransform} scale(${1 + scrollProgress * 0.7}) translateY(${scrollProgress * 24}px)` : baseTransform,
+                    opacity: isHero ? 0.35 + scrollProgress * 0.65 : undefined,
+                    zIndex: isHero ? 10 : 1,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
+                  <img src={c.src} alt="" className="h-full w-full object-cover" />
+                </button>
+              );
+            })}
+          </div>
+
           <div className="relative mx-auto max-w-2xl px-6">
             <h1 className="animate-fade-in-up text-4xl font-bold tracking-tight text-[#f4f4f6] lg:text-5xl">
               더 확실한 판단을 위한 이미지 검증
@@ -168,8 +262,9 @@ export default function Home() {
               </p>
 
               <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4 rounded-3xl border border-white/8 bg-white/[0.03] p-6 sm:flex-row">
-                <div className="flex flex-1 items-center justify-center rounded-2xl bg-gradient-to-br from-[#dbeafe] to-[#93c5fd]" style={{ aspectRatio: "1 / 1" }}>
-                  <span className="text-5xl">📱</span>
+                <div className="flex-1 overflow-hidden rounded-2xl" style={{ aspectRatio: "1 / 1" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 장식용 예시 이미지, next/image 이점 없음 */}
+                  <img src="/hero-photos/hero-1.jpg" alt="" className="h-full w-full object-cover" />
                 </div>
                 <div className="flex-1 overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]">
                   <div className="flex items-center justify-between px-4 py-2.5">
