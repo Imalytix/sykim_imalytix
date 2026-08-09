@@ -15,25 +15,34 @@ import type { AnalysisResult } from "@/types/analysis";
 // 회전이 0으로 상쇄돼야 하는데 실제로는 카드가 비스듬히 나오는 문제가
 // 반복돼서 — 원인을 더 파고들기보다, 애초에 회전 합성에 기대지 않는 이
 // 방식이 훨씬 확실하고 검증하기도 쉬움(계산 결과가 눈에 보이는 숫자라서).
-const ARCH_PIVOT_TOP = 280; // px, 아치 중심점의 세로 위치(섹션 상단 기준)
-const ARCH_RADIUS = 280; // px
-const ARCH_CARD_W = 135; // px
-const ARCH_CARD_H = 165; // px, ARCH_CARD_W * 1.22
+const ARCH_PIVOT_TOP = 320; // px, 아치 중심점의 세로 위치(섹션 상단 기준)
+const ARCH_RADIUS = 320; // px — 전보다 키워서 카드 사이 간격(호의 길이)을 넓힘
+const ARCH_CARD_W = 115; // px — 대신 카드는 살짝 줄여서 겹침을 줄임
+const ARCH_CARD_H = 140; // px, ARCH_CARD_W * 1.22
 
-function archOffset(angleDeg: number) {
+// 각도(호 위 위치)와 기울기(카드 자체의 회전)는 서로 다른 목적 — 각도는 카드가
+// "어디에" 있는지, 기울기는 가운데서 멀어질수록 카드가 "얼마나 기울어 보이는지".
+// 기울기는 각도에 비례하게 잡아서, 중앙 카드는 거의 안 기울고 바깥으로 갈수록
+// 점점 더 기울어지는 자연스러운 느낌을 냄.
+function archCard(src: string, angleDeg: number) {
   const rad = (angleDeg * Math.PI) / 180;
-  return { x: Math.round(ARCH_RADIUS * Math.sin(rad)), y: Math.round(-ARCH_RADIUS * Math.cos(rad)) };
+  return {
+    src,
+    x: Math.round(ARCH_RADIUS * Math.sin(rad)),
+    y: Math.round(-ARCH_RADIUS * Math.cos(rad)),
+    rotate: Math.round(angleDeg * 0.22),
+  };
 }
 
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", ...archOffset(-68) },
-  { src: "/hero-photos/hero-2.jpg", ...archOffset(-49) },
-  { src: "/hero-photos/hero-3.jpg", ...archOffset(-31) },
-  { src: "/hero-photos/hero-4.jpg", ...archOffset(-10) },
-  { src: "/hero-photos/hero-5.jpg", ...archOffset(9) },
-  { src: "/hero-photos/hero-6.jpg", ...archOffset(27) },
-  { src: "/hero-photos/hero-7.jpg", ...archOffset(46) },
-  { src: "/hero-photos/hero-8.jpg", ...archOffset(66) },
+  archCard("/hero-photos/hero-1.jpg", -70),
+  archCard("/hero-photos/hero-2.jpg", -49),
+  archCard("/hero-photos/hero-3.jpg", -30),
+  archCard("/hero-photos/hero-4.jpg", -10),
+  archCard("/hero-photos/hero-5.jpg", 11),
+  archCard("/hero-photos/hero-6.jpg", 31),
+  archCard("/hero-photos/hero-7.jpg", 50),
+  archCard("/hero-photos/hero-8.jpg", 70),
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -197,7 +206,7 @@ export default function Home() {
       <AppHeader />
 
       {showHero && (
-        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-80 text-center">
+        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-96 text-center">
           {/* 원호(아치) 배치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
               rotate(-각도))을 그대로 씀: 피벗을 기준으로 각 카드가 정확히
               원 둘레 위에 놓이고, 뒤의 rotate(-각도)가 카드 자체는 다시 수평으로
@@ -221,7 +230,7 @@ export default function Home() {
                     // (-50%, -50%)로 먼저 (left, top) 지점에 카드 중심을 맞춘 뒤,
                     // 미리 계산해둔 x/y만큼 추가로 옮김 — 회전을 전혀 안 쓰므로
                     // 카드는 항상 정확히 반듯한(회전 없는) 상태로 남는다.
-                    transform: `translate(calc(-50% + ${c.x}px), calc(-50% + ${c.y}px))`,
+                    transform: `translate(calc(-50% + ${c.x}px), calc(-50% + ${c.y}px)) rotate(${c.rotate}deg)`,
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
