@@ -9,25 +9,31 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
-// 히어로 위쪽 아치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
-// rotate(-각도))으로 진짜 원호를 그림. 처음엔 "카드끼리 안 겹쳐야 한다"는
-// 제약으로 카드를 78px까지 줄였더니 듬성듬성한 원형 점들처럼 보였는데,
-// 참고 사이트도 실제로는 카드끼리 겹침 — 겹침을 허용하고 카드를 훨씬
-// 키움(135px). 각도 범위도 좁혀서(±68°, 전엔 ±78°) 원보다 완만한 돔에 가깝게.
+// 히어로 위쪽 아치 — CSS rotate()/translateY() 합성 트릭 대신, 각도별 x/y
+// 오프셋을 JS에서 직접 삼각함수로 미리 계산해 카드는 항상 회전 없이 반듯하게
+// 배치한다. rotate(각도) translateY(-r) rotate(-각도) 방식은 이론상 최종
+// 회전이 0으로 상쇄돼야 하는데 실제로는 카드가 비스듬히 나오는 문제가
+// 반복돼서 — 원인을 더 파고들기보다, 애초에 회전 합성에 기대지 않는 이
+// 방식이 훨씬 확실하고 검증하기도 쉬움(계산 결과가 눈에 보이는 숫자라서).
 const ARCH_PIVOT_TOP = 280; // px, 아치 중심점의 세로 위치(섹션 상단 기준)
 const ARCH_RADIUS = 280; // px
 const ARCH_CARD_W = 135; // px
 const ARCH_CARD_H = 165; // px, ARCH_CARD_W * 1.22
 
+function archOffset(angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: Math.round(ARCH_RADIUS * Math.sin(rad)), y: Math.round(-ARCH_RADIUS * Math.cos(rad)) };
+}
+
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", angle: -68 },
-  { src: "/hero-photos/hero-2.jpg", angle: -49 },
-  { src: "/hero-photos/hero-3.jpg", angle: -31 },
-  { src: "/hero-photos/hero-4.jpg", angle: -10 },
-  { src: "/hero-photos/hero-5.jpg", angle: 9 },
-  { src: "/hero-photos/hero-6.jpg", angle: 27 },
-  { src: "/hero-photos/hero-7.jpg", angle: 46 },
-  { src: "/hero-photos/hero-8.jpg", angle: 66 },
+  { src: "/hero-photos/hero-1.jpg", ...archOffset(-68) },
+  { src: "/hero-photos/hero-2.jpg", ...archOffset(-49) },
+  { src: "/hero-photos/hero-3.jpg", ...archOffset(-31) },
+  { src: "/hero-photos/hero-4.jpg", ...archOffset(-10) },
+  { src: "/hero-photos/hero-5.jpg", ...archOffset(9) },
+  { src: "/hero-photos/hero-6.jpg", ...archOffset(27) },
+  { src: "/hero-photos/hero-7.jpg", ...archOffset(46) },
+  { src: "/hero-photos/hero-8.jpg", ...archOffset(66) },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -212,13 +218,10 @@ export default function Home() {
                     top: `${ARCH_PIVOT_TOP}px`,
                     width: `${ARCH_CARD_W}px`,
                     height: `${ARCH_CARD_H}px`,
-                    // rotate()의 회전축은 기본적으로 엘리먼트 자기 자신의 중심(50% 50%)인데,
-                    // left/top은 엘리먼트의 좌상단 모서리 기준이라 마진으로 절반만큼
-                    // 당겨줘야 (left, top) 지점이 곧 회전 중심(피벗)이 됨 — 이게 없으면
-                    // 카드 크기의 절반만큼 피벗이 어긋나서 원 계산이 다 틀어짐.
-                    marginLeft: `${-ARCH_CARD_W / 2}px`,
-                    marginTop: `${-ARCH_CARD_H / 2}px`,
-                    transform: `rotate(${c.angle}deg) translateY(-${ARCH_RADIUS}px) rotate(${-c.angle}deg)`,
+                    // (-50%, -50%)로 먼저 (left, top) 지점에 카드 중심을 맞춘 뒤,
+                    // 미리 계산해둔 x/y만큼 추가로 옮김 — 회전을 전혀 안 쓰므로
+                    // 카드는 항상 정확히 반듯한(회전 없는) 상태로 남는다.
+                    transform: `translate(calc(-50% + ${c.x}px), calc(-50% + ${c.y}px))`,
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
