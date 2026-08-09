@@ -105,18 +105,6 @@ export default function Home() {
 
       {showHero && (
         <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black py-20 text-center">
-          {/* 장식용 배경 사진 — 디자인 목업(검증 전/메인 프레임)에서 잘라낸 정적
-              이미지 2장을 좌/우에 배치. 가운데(업로드 박스·버튼)와 겹치지 않도록
-              그 부분을 제외하고 잘라뒀음. */}
-          <div className="pointer-events-none absolute inset-0 hidden sm:block" aria-hidden="true">
-            <div className="relative mx-auto h-full max-w-4xl">
-              {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음 */}
-              <img src="/hero-photos-left.png" alt="" className="absolute left-0 top-4 w-[300px]" />
-              {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음 */}
-              <img src="/hero-photos-right.png" alt="" className="absolute right-0 top-4 w-[280px]" />
-            </div>
-          </div>
-
           <div className="relative mx-auto max-w-2xl px-6">
             <h1 className="animate-fade-in-up text-4xl font-bold tracking-tight text-[#f4f4f6] lg:text-5xl">
               더 확실한 판단을 위한 이미지 검증
@@ -158,7 +146,7 @@ export default function Home() {
       )}
 
       <main className="mx-auto w-full max-w-5xl px-6 py-10">
-        <AnalysisStepsLoader active={isLoading} />
+        <AnalysisStepsLoader active={isLoading} previewUrl={previewUrl} />
 
         {analysisResult && !isLoading && (
           <AnalysisResultView
@@ -248,7 +236,16 @@ export default function Home() {
                 설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든 우클릭으로 바로 검증할 수 있습니다.
               </p>
               <div className="mx-auto mt-10 max-w-[860px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b21] shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
-                <video ref={extVideoRef} src="/extension-demo.mp4" muted loop playsInline preload="metadata" className="block w-full bg-black" />
+                <video
+                  ref={extVideoRef}
+                  src="/extension-demo.mp4"
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  preload="auto"
+                  className="block w-full bg-black"
+                />
               </div>
               <a
                 href="#top"
