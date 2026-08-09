@@ -90,6 +90,85 @@ export default function Home() {
     };
   }, []);
 
+  // 아치 카드 반지름/카드 크기를 고정값으로 대충 잡았더니 화면 크기에 따라
+  // 카드끼리 겹치거나 너무 작아지는 문제가 반복됐다 — 참고 프로토타입처럼
+  // 실제 컨테이너 폭을 측정해서 "카드 8장이 겹치지 않는 최대 폭"을 역산하는
+  // 방식으로 바꿈(참고 사이트 main.js의 반지름→카드폭 역산 공식과 동일한
+  // 아이디어, 우리는 원 전체가 아니라 아치 하나만 쓰므로 그에 맞게 조정).
+  const archRef = useRef<HTMLDivElement | null>(null);
+  const [archLayout, setArchLayout] = useState({ radius: 220, cardWidth: 96 });
+  useEffect(() => {
+    const el = archRef.current;
+    if (!el) return;
+
+    const ARC_SPAN_DEG = Math.max(...ARCH_CARDS.map((c) => c.angle)) - Math.min(...ARCH_CARDS.map((c) => c.angle));
+    const ARC_SPAN_RAD = (ARC_SPAN_DEG * Math.PI) / 180;
+    const GAP_RATIO = 1.35; // 카드 폭 대비 카드 사이 중심 간격 — 클수록 여유 있게 벌어짐
+
+    const recompute = () => {
+      const rect = el.getBoundingClientRect();
+      // 중앙 근처 각도(0°에 가까운 카드)는 반지름만큼 거의 그대로 위로
+      // 올라가 피벗(20% 지점) 위로 넘어가 섹션 밖으로 잘릴 수 있는데, 그건
+      // 참고 사이트도 마찬가지로 의도된 모습(헤더 뒤로 살짝 잠기는 느낌)이라
+      // 높이 기준으로는 굳이 반지름을 제한하지 않음 — 폭 기준과 절대 상한만 적용.
+      const maxRadiusByWidth = rect.width * 0.46;
+      const radius = Math.max(120, Math.min(maxRadiusByWidth, 340));
+      const cardWidth = Math.max(64, Math.min((radius * ARC_SPAN_RAD) / (ARCH_CARDS.length * GAP_RATIO), 170));
+      setArchLayout({ radius, cardWidth });
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // "결과만이 아닌..." 예시 카드 — 화면에 스크롤되어 들어올 때마다 0%에서
+  // 75%까지 게이지가 채워지고 숫자가 오르며, 다 오르고 나서 "높음" 배지와
+  // 문구가 뒤이어 나타남. 다시 스크롤해서 벗어났다가 들어오면 처음부터 재생.
+  const demoCardRef = useRef<HTMLDivElement | null>(null);
+  const [demoPercent, setDemoPercent] = useState(0);
+  const [demoTextVisible, setDemoTextVisible] = useState(false);
+  useEffect(() => {
+    const el = demoCardRef.current;
+    if (!el) return;
+    const DURATION_MS = 1200;
+    const TARGET = 75;
+    let rafId: number | null = null;
+    let startedAt: number | null = null;
+
+    const animate = (ts: number) => {
+      if (startedAt === null) startedAt = ts;
+      const t = Math.min(1, (ts - startedAt) / DURATION_MS);
+      const eased = 1 - (1 - t) ** 3; // ease-out cubic
+      setDemoPercent(Math.round(eased * TARGET));
+      if (t < 1) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        setDemoTextVisible(true);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          startedAt = null;
+          setDemoTextVisible(false);
+          setDemoPercent(0);
+          rafId = requestAnimationFrame(animate);
+        } else if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   // 익스텐션 데모 영상 — 참고 사이트와 동일하게 화면에 보일 때만 재생하고
   // 벗어나면 멈춤(항상 자동재생하는 것보다 배터리/리소스 부담이 적음).
   const extVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -167,26 +246,31 @@ export default function Home() {
               스크롤에 맞춰 살짝 회전하고, 첫 번째 카드는 스크롤할수록 커지고
               진해지면서 "결과가 나타나는" 듯한 느낌을 줌. */}
           <div
+            ref={archRef}
             className="pointer-events-none absolute inset-0 hidden sm:block"
             style={{ transform: `rotate(${scrollProgress * 22}deg)` }}
           >
             {ARCH_CARDS.map((c, i) => {
               const isHero = i === 0;
-              const baseTransform = `rotate(${c.angle}deg) translateY(-270px) rotate(${-c.angle}deg)`;
+              const { radius, cardWidth } = archLayout;
+              const cardHeight = cardWidth * 1.22;
+              const baseTransform = `rotate(${c.angle}deg) translateY(-${radius}px) rotate(${-c.angle}deg)`;
               return (
                 <button
                   key={c.src}
                   type="button"
                   onClick={() => handleSampleClick(c.src)}
                   aria-label="샘플 이미지로 바로 검증하기"
-                  className={`pointer-events-auto absolute h-32 w-28 overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
+                  className={`pointer-events-auto absolute overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
                     isHero ? "" : "opacity-25 hover:opacity-80 hover:scale-105"
                   }`}
                   style={{
                     left: "50%",
                     top: "20%",
-                    marginLeft: "-56px",
-                    marginTop: "-64px",
+                    width: `${cardWidth}px`,
+                    height: `${cardHeight}px`,
+                    marginLeft: `${-cardWidth / 2}px`,
+                    marginTop: `${-cardHeight / 2}px`,
                     transform: isHero ? `${baseTransform} scale(${1 + scrollProgress * 0.7}) translateY(${scrollProgress * 24}px)` : baseTransform,
                     opacity: isHero ? 0.25 + scrollProgress * 0.75 : undefined,
                     zIndex: isHero ? 10 : 1,
@@ -266,7 +350,7 @@ export default function Home() {
                   {/* eslint-disable-next-line @next/next/no-img-element -- 장식용 예시 이미지, next/image 이점 없음 */}
                   <img src="/hero-photos/hero-1.jpg" alt="" className="h-full w-full object-cover" />
                 </div>
-                <div className="flex-1 overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]">
+                <div ref={demoCardRef} className="flex-1 overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]">
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="flex items-center gap-1 text-[12px] font-bold">
                       <span className="h-2 w-2 rounded-full bg-[#52bdff]" /> imalytix
@@ -275,11 +359,22 @@ export default function Home() {
                   </div>
                   <div className="border-t border-black/6 px-4 py-2.5 text-[11px] text-[#8a8a8a]">이 이미지를 분석했습니다. · 방금 전</div>
                   <div className="flex flex-col items-center gap-2 px-4 py-5">
-                    <div className="relative flex h-16 w-16 items-center justify-center rounded-full border-4 border-[#f23e3e]">
-                      <span className="text-[15px] font-extrabold">75%</span>
+                    <div
+                      className="relative flex h-16 w-16 items-center justify-center rounded-full"
+                      style={{ background: `conic-gradient(#f23e3e ${demoPercent * 3.6}deg, #f2f2f2 0deg)` }}
+                    >
+                      <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-white">
+                        <span className="text-[15px] font-extrabold">{demoPercent}%</span>
+                      </div>
                     </div>
-                    <span className="rounded-full bg-[#f23e3e] px-2.5 py-0.5 text-[10px] font-bold text-white">높음</span>
-                    <p className="mt-1 text-[11px] text-[#7a7a7a]">AI 생성 이미지일 가능성이 높습니다.</p>
+                    <span
+                      className={`rounded-full bg-[#f23e3e] px-2.5 py-0.5 text-[10px] font-bold text-white transition-opacity duration-500 ${demoTextVisible ? "opacity-100" : "opacity-0"}`}
+                    >
+                      높음
+                    </span>
+                    <p className={`mt-1 text-[11px] text-[#7a7a7a] transition-opacity duration-500 ${demoTextVisible ? "opacity-100" : "opacity-0"}`}>
+                      AI 생성 이미지일 가능성이 높습니다.
+                    </p>
                   </div>
                   <div className="border-t border-black/6 px-4 py-2.5 text-[11px] font-bold">핵심 결과</div>
                 </div>
