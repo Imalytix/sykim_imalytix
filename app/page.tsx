@@ -13,14 +13,14 @@ import type { AnalysisResult } from "@/types/analysis";
 // 같은 아이디어지만, 완전한 원이 아니라 위쪽 절반만 쓰는 아치이고, 각도 간격도
 // 일부러 고르지 않게 잡음(전부 같은 간격으로 붙어있으면 기계적으로 보임).
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", angle: -74 },
-  { src: "/hero-photos/hero-2.jpg", angle: -54 },
-  { src: "/hero-photos/hero-3.jpg", angle: -37 },
-  { src: "/hero-photos/hero-4.jpg", angle: -14 },
-  { src: "/hero-photos/hero-5.jpg", angle: 6 },
-  { src: "/hero-photos/hero-6.jpg", angle: 24 },
-  { src: "/hero-photos/hero-7.jpg", angle: 49 },
-  { src: "/hero-photos/hero-8.jpg", angle: 71 },
+  { src: "/hero-photos/hero-1.jpg", angle: -84 },
+  { src: "/hero-photos/hero-2.jpg", angle: -61 },
+  { src: "/hero-photos/hero-3.jpg", angle: -41 },
+  { src: "/hero-photos/hero-4.jpg", angle: -15 },
+  { src: "/hero-photos/hero-5.jpg", angle: 8 },
+  { src: "/hero-photos/hero-6.jpg", angle: 27 },
+  { src: "/hero-photos/hero-7.jpg", angle: 55 },
+  { src: "/hero-photos/hero-8.jpg", angle: 81 },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -172,7 +172,7 @@ export default function Home() {
           >
             {ARCH_CARDS.map((c, i) => {
               const isHero = i === 0;
-              const baseTransform = `rotate(${c.angle}deg) translateY(-165px) rotate(${-c.angle}deg)`;
+              const baseTransform = `rotate(${c.angle}deg) translateY(-270px) rotate(${-c.angle}deg)`;
               return (
                 <button
                   key={c.src}
@@ -180,15 +180,15 @@ export default function Home() {
                   onClick={() => handleSampleClick(c.src)}
                   aria-label="샘플 이미지로 바로 검증하기"
                   className={`pointer-events-auto absolute h-32 w-28 overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
-                    isHero ? "" : "opacity-35 hover:opacity-85 hover:scale-105"
+                    isHero ? "" : "opacity-25 hover:opacity-80 hover:scale-105"
                   }`}
                   style={{
                     left: "50%",
-                    top: "34%",
+                    top: "20%",
                     marginLeft: "-56px",
                     marginTop: "-64px",
                     transform: isHero ? `${baseTransform} scale(${1 + scrollProgress * 0.7}) translateY(${scrollProgress * 24}px)` : baseTransform,
-                    opacity: isHero ? 0.35 + scrollProgress * 0.65 : undefined,
+                    opacity: isHero ? 0.25 + scrollProgress * 0.75 : undefined,
                     zIndex: isHero ? 10 : 1,
                   }}
                 >
