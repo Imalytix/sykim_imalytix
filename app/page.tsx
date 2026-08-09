@@ -15,14 +15,14 @@ import type { AnalysisResult } from "@/types/analysis";
 // left는 %(화면 폭 비례), top/width/height는 px(섹션 상단 기준 고정값)로 둬서
 // 세로 공간이 짧은 우리 히어로에서도 카드가 섹션 밖으로 사라지지 않게 함.
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", leftPct: 50, topPx: 95, width: 150, height: 155, rotate: 0, opacity: 0.85, isHero: true },
-  { src: "/hero-photos/hero-2.jpg", leftPct: 33, topPx: 140, width: 155, height: 190, rotate: -9, opacity: 0.35 },
-  { src: "/hero-photos/hero-3.jpg", leftPct: 18, topPx: 230, width: 145, height: 175, rotate: -7, opacity: 0.3 },
-  { src: "/hero-photos/hero-4.jpg", leftPct: 4, topPx: 185, width: 130, height: 160, rotate: -11, opacity: 0.26 },
-  { src: "/hero-photos/hero-5.jpg", leftPct: 67, topPx: 140, width: 155, height: 190, rotate: 9, opacity: 0.35 },
-  { src: "/hero-photos/hero-6.jpg", leftPct: 82, topPx: 230, width: 145, height: 175, rotate: 7, opacity: 0.3 },
-  { src: "/hero-photos/hero-7.jpg", leftPct: 96, topPx: 185, width: 130, height: 160, rotate: 11, opacity: 0.26 },
-  { src: "/hero-photos/hero-8.jpg", leftPct: 12, topPx: 340, width: 120, height: 145, rotate: -13, opacity: 0.2 },
+  { src: "/hero-photos/hero-1.jpg", leftPct: 50, topPx: 85, width: 140, height: 145, rotate: 0, opacity: 0.85, isHero: true },
+  { src: "/hero-photos/hero-2.jpg", leftPct: 33, topPx: 135, width: 145, height: 170, rotate: -9, opacity: 0.35 },
+  { src: "/hero-photos/hero-3.jpg", leftPct: 18, topPx: 185, width: 135, height: 150, rotate: -7, opacity: 0.3 },
+  { src: "/hero-photos/hero-4.jpg", leftPct: 4, topPx: 150, width: 125, height: 155, rotate: -11, opacity: 0.26 },
+  { src: "/hero-photos/hero-5.jpg", leftPct: 67, topPx: 135, width: 145, height: 170, rotate: 9, opacity: 0.35 },
+  { src: "/hero-photos/hero-6.jpg", leftPct: 82, topPx: 185, width: 135, height: 150, rotate: 7, opacity: 0.3 },
+  { src: "/hero-photos/hero-7.jpg", leftPct: 96, topPx: 150, width: 125, height: 155, rotate: 11, opacity: 0.26 },
+  { src: "/hero-photos/hero-8.jpg", leftPct: 12, topPx: 330, width: 115, height: 140, rotate: -13, opacity: 0.2 },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -186,7 +186,7 @@ export default function Home() {
       <AppHeader />
 
       {showHero && (
-        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black py-20 text-center">
+        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-64 text-center">
           {/* 정적 사진 배치 — 가운데 하나는 크고 또렷하게(hero), 나머지는 좌우로
               갈수록 작고 흐리게. 클릭하면 그 사진으로 바로 검증 시작. */}
           <div className="pointer-events-none absolute inset-0 hidden sm:block">
