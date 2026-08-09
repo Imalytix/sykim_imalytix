@@ -211,15 +211,18 @@ export default function Home() {
       <AppHeader />
 
       {showHero && (
-        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-96 text-center">
+        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-44 text-center sm:pt-96">
           {/* 원호(아치) 배치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
               rotate(-각도))을 그대로 씀: 피벗을 기준으로 각 카드가 정확히
               원 둘레 위에 놓이고, 뒤의 rotate(-각도)가 카드 자체는 다시 수평으로
               세워줌. left:50%가 섹션 전체 폭이 아니라 안쪽 max-w-3xl 박스
               기준이라, 화면이 아무리 넓어도 중앙에 모여있음(이전에는 섹션 전체
               폭 기준이라 와이드 모니터에서 화면 가장자리까지 흩어져 보였음). */}
-          <div className="pointer-events-none absolute inset-0 hidden sm:block">
-            <div className="relative mx-auto h-full max-w-3xl">
+          <div className="pointer-events-none absolute inset-0">
+            {/* 모바일에서는 좌표(±510px까지 퍼지는 배치)가 화면 폭보다 훨씬 커서
+                그대로 두면 잘리거나 넘침 — 좌표는 그대로 두고 컨테이너 전체를
+                origin-top으로 축소해서 같은 비율의 배치를 화면 폭에 맞춤. */}
+            <div className="relative mx-auto h-full max-w-3xl origin-top scale-[0.32] sm:scale-100">
               {ARCH_CARDS.map((c) => (
                 <button
                   key={c.src}
