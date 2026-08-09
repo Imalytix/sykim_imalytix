@@ -188,31 +188,37 @@ export default function Home() {
       {showHero && (
         <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-64 text-center">
           {/* 정적 사진 배치 — 가운데 하나는 크고 또렷하게(hero), 나머지는 좌우로
-              갈수록 작고 흐리게. 클릭하면 그 사진으로 바로 검증 시작. */}
+              갈수록 작고 흐리게. 클릭하면 그 사진으로 바로 검증 시작.
+              leftPct는 섹션 전체 폭이 아니라 이 안쪽의 max-w-3xl 박스 기준 —
+              그래야 화면이 넓어져도 카드들이 참고 사이트처럼 중앙에 모여있고
+              양옆으로 쫙 퍼지지 않음(전에는 섹션 전체 폭 기준이라 와이드
+              모니터에서 카드들이 화면 가장자리까지 흩어져 보였음). */}
           <div className="pointer-events-none absolute inset-0 hidden sm:block">
-            {ARCH_CARDS.map((c) => (
-              <button
-                key={c.src}
-                type="button"
-                onClick={() => handleSampleClick(c.src)}
-                aria-label="샘플 이미지로 바로 검증하기"
-                className={`pointer-events-auto absolute overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
-                  c.isHero ? "" : "hover:opacity-80 hover:scale-105"
-                }`}
-                style={{
-                  left: `${c.leftPct}%`,
-                  top: `${c.topPx}px`,
-                  width: `${c.width}px`,
-                  height: `${c.height}px`,
-                  opacity: c.opacity,
-                  transform: `translate(-50%, -50%) rotate(${c.rotate}deg)`,
-                  zIndex: c.isHero ? 10 : 1,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
-                <img src={c.src} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
+            <div className="relative mx-auto h-full max-w-3xl">
+              {ARCH_CARDS.map((c) => (
+                <button
+                  key={c.src}
+                  type="button"
+                  onClick={() => handleSampleClick(c.src)}
+                  aria-label="샘플 이미지로 바로 검증하기"
+                  className={`pointer-events-auto absolute overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
+                    c.isHero ? "" : "hover:opacity-80 hover:scale-105"
+                  }`}
+                  style={{
+                    left: `${c.leftPct}%`,
+                    top: `${c.topPx}px`,
+                    width: `${c.width}px`,
+                    height: `${c.height}px`,
+                    opacity: c.opacity,
+                    transform: `translate(-50%, -50%) rotate(${c.rotate}deg)`,
+                    zIndex: c.isHero ? 10 : 1,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
+                  <img src={c.src} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="relative mx-auto max-w-2xl px-6">
