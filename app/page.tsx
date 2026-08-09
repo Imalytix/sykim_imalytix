@@ -10,24 +10,24 @@ import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
 // 히어로 위쪽 아치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
-// rotate(-각도))으로 진짜 원호를 그림. 아래 상수들은 손으로 직접 검산한
-// 값(786px 폭 컨테이너, 320px 헤드룸 기준 — ARCH_PIVOT_TOP/ARCH_RADIUS 참고):
-// 가장 가파른(각도 10°) 카드도 섹션 위로 16px만 살짝 걸치고, 가장 눕는(각도
-// 78°) 카드도 헤드라인 시작 전에 확실히 끝나도록 계산됨.
+// rotate(-각도))으로 진짜 원호를 그림. 처음엔 "카드끼리 안 겹쳐야 한다"는
+// 제약으로 카드를 78px까지 줄였더니 듬성듬성한 원형 점들처럼 보였는데,
+// 참고 사이트도 실제로는 카드끼리 겹침 — 겹침을 허용하고 카드를 훨씬
+// 키움(135px). 각도 범위도 좁혀서(±68°, 전엔 ±78°) 원보다 완만한 돔에 가깝게.
 const ARCH_PIVOT_TOP = 280; // px, 아치 중심점의 세로 위치(섹션 상단 기준)
-const ARCH_RADIUS = 300; // px
-const ARCH_CARD_W = 78; // px
-const ARCH_CARD_H = 95; // px, ARCH_CARD_W * 1.22
+const ARCH_RADIUS = 280; // px
+const ARCH_CARD_W = 135; // px
+const ARCH_CARD_H = 165; // px, ARCH_CARD_W * 1.22
 
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", angle: -78 },
-  { src: "/hero-photos/hero-2.jpg", angle: -56 },
-  { src: "/hero-photos/hero-3.jpg", angle: -36 },
-  { src: "/hero-photos/hero-4.jpg", angle: -12 },
-  { src: "/hero-photos/hero-5.jpg", angle: 10 },
-  { src: "/hero-photos/hero-6.jpg", angle: 30 },
-  { src: "/hero-photos/hero-7.jpg", angle: 52 },
-  { src: "/hero-photos/hero-8.jpg", angle: 76 },
+  { src: "/hero-photos/hero-1.jpg", angle: -68 },
+  { src: "/hero-photos/hero-2.jpg", angle: -49 },
+  { src: "/hero-photos/hero-3.jpg", angle: -31 },
+  { src: "/hero-photos/hero-4.jpg", angle: -10 },
+  { src: "/hero-photos/hero-5.jpg", angle: 9 },
+  { src: "/hero-photos/hero-6.jpg", angle: 27 },
+  { src: "/hero-photos/hero-7.jpg", angle: 46 },
+  { src: "/hero-photos/hero-8.jpg", angle: 66 },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
