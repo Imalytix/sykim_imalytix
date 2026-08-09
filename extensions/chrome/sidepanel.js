@@ -166,7 +166,7 @@ function renderResult(result, sourceUrl) {
   } else {
     thirdFinding = {
       ok: dupMatches.length === 0,
-      title: dupMatches.length === 0 ? "웹에서 동일한 이미지가 발견되지 않았습니다." : `유사한 이미지 ${dupMatches.length}건이 발견되었습니다.`,
+      title: dupMatches.length === 0 ? "자사 DB에서 동일한 이미지가 발견되지 않았습니다." : `유사한 이미지 ${dupMatches.length}건이 발견되었습니다.`,
       sub: dupMatches.length === 0 ? "이전에 분석한 이미지 중 일치하는 항목이 없습니다." : "유사도가 낮아 이번 결과에는 반영되지 않았습니다.",
     };
   }

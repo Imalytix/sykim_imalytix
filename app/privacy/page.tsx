@@ -73,7 +73,7 @@ export default function PrivacyPolicyPage() {
           Imalytix(이하 “서비스”)는 이미지가 AI로 생성되었을 가능성을 분석해 알려주는 도구입니다. 서비스는 그 목적을 수행하는 데
           필요한 최소한의 정보만 처리하며, <strong className="font-semibold text-[#f4f4f6]">이용자의 웹 브라우징 기록, 페이지
           내용, 입력값, 개인 식별 정보를 수집하지 않습니다.</strong> 본 방침은 웹사이트({SERVICE_ORIGIN})와 Chrome 확장 프로그램
-          “Imalytix — AI 이미지 탐지” 모두에 동일하게 적용됩니다.
+          “imalytix” 모두에 동일하게 적용됩니다.
         </div>
 
         <div className="mt-10 flex flex-col gap-8">

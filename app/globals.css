@@ -32,3 +32,45 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* "이런 상황에서 쓰세요" 카드 행 — 좌측으로 천천히 계속 흘러가는 마퀴 연출.
+   렌더링 쪽에서 카드 목록을 통째로 두 번 이어붙이고, -50% 지점까지만
+   옮기면 정확히 한 바퀴 돈 것처럼 이음매 없이 반복된다. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 34s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-marquee {
+    animation: none;
+  }
+}

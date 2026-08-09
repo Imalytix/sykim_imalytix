@@ -82,7 +82,7 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected, on
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5">
               <Upload className="h-5 w-5" />
             </span>
-            <span className="text-sm font-semibold">이미지 업로드</span>
+            <span className="text-sm font-semibold">Upload</span>
           </>
         )}
       </button>

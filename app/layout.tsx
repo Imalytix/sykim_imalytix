@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Imalytix — AI 이미지 탐지",
+  title: "imalytix",
   description: "메타데이터 분석과 시각 AI 앙상블로 이미지의 AI 생성 여부를 판별합니다.",
 };
 

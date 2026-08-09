@@ -27,6 +27,42 @@ export const AI_SOFTWARE_KEYWORDS = [
   "novelai",
 ];
 
+// exifr.parse()는 PNG에서 EXIF가 전혀 없어도 IHDR 청크 기반 구조적 필드
+// (ImageWidth/BitDepth/ColorType/...)를 항상 돌려주기 때문에, "parse 결과가
+// truthy면 EXIF 있음"으로 판단하면 모든 PNG가 실제 촬영 여부와 무관하게
+// exif_found: true로 나온다(JPEG는 EXIF가 없으면 undefined를 반환해 이 문제가
+// 없음 — PNG에서만 발생하는 비대칭). 카메라/촬영 관련 필드가 실제로 하나라도
+// 있을 때만 "촬영 정보 확인됨"으로 판정하도록 화이트리스트로 제한.
+const EXIF_CAMERA_INDICATOR_KEYS = new Set([
+  "Make",
+  "Model",
+  "LensMake",
+  "LensModel",
+  "Software",
+  "DateTimeOriginal",
+  "CreateDate",
+  "ModifyDate",
+  "DateTime",
+  "ExposureTime",
+  "FNumber",
+  "ISO",
+  "ISOSpeedRatings",
+  "FocalLength",
+  "FocalLengthIn35mmFormat",
+  "WhiteBalance",
+  "Flash",
+  "ExposureProgram",
+  "MeteringMode",
+  "Orientation",
+  "ExposureCompensation",
+  "SceneCaptureType",
+  "GPSLatitude",
+  "GPSLongitude",
+  "GPSAltitude",
+  "latitude",
+  "longitude",
+]);
+
 function toText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (Buffer.isBuffer(value)) return value.toString("utf-8");
@@ -195,7 +231,7 @@ export async function analyzeMetadata(
     const parsed = await exifr.parse(imageBuffer, { pick: undefined });
     if (parsed) {
       exifData = parsed as Record<string, unknown>;
-      exifFound = true;
+      exifFound = Object.keys(exifData).some((key) => EXIF_CAMERA_INDICATOR_KEYS.has(key));
     }
   } catch {
     exifData = {};

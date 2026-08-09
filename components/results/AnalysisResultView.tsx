@@ -147,7 +147,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
           }
         : {
             ok: duplicateMatches.length === 0,
-            title: duplicateMatches.length === 0 ? "웹에서 동일한 이미지가 발견되지 않았습니다." : `유사한 이미지 ${duplicateMatches.length}건이 발견되었습니다.`,
+            title: duplicateMatches.length === 0 ? "자사 DB에서 동일한 이미지가 발견되지 않았습니다." : `유사한 이미지 ${duplicateMatches.length}건이 발견되었습니다.`,
             sub: duplicateMatches.length === 0 ? "이전에 분석한 이미지 중 일치하는 항목이 없습니다." : "유사도가 낮아 이번 결과에는 반영되지 않았습니다.",
           },
   ];

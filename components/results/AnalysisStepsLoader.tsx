@@ -28,8 +28,19 @@ interface CropInfo {
   srcH: number;
 }
 
+// 디자인 요청: 검증이 끝날 때까지 아래 5개 문장이 2초 간격으로 순환 표시됨.
+const STEPS = [
+  "이미지 정보를 읽는 중..",
+  "질감과 패턴을 분석하는 중..",
+  "생성 흔적을 찾는 중..",
+  "비슷한 이미지를 찾는 중..",
+  "분석 결과를 종합하는 중..",
+];
+const STEP_INTERVAL_MS = 2000;
+
 export default function AnalysisStepsLoader({ active }: AnalysisStepsLoaderProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cropRef = useRef<CropInfo | null>(null);
@@ -42,6 +53,12 @@ export default function AnalysisStepsLoader({ active }: AnalysisStepsLoaderProps
     // 동기적으로 setState를 호출하지 않아도(react-hooks/set-state-in-effect
     // 규칙 위반 방지) 실질적으로는 즉시 리셋된 것처럼 보입니다.
     const timer = setInterval(() => setElapsedMs(Date.now() - startedAt), 100);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setStepIndex((i) => (i + 1) % STEPS.length), STEP_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [active]);
 
@@ -162,7 +179,7 @@ export default function AnalysisStepsLoader({ active }: AnalysisStepsLoaderProps
       <video ref={videoRef} src="/loading.mp4" autoPlay loop muted playsInline className="pointer-events-none absolute h-px w-px opacity-0" />
       <canvas ref={canvasRef} className="h-44 w-44 object-contain sm:h-56 sm:w-56" />
       <p className="mt-4 text-[17px] font-bold text-[#f4f4f6]">이미지를 분석하고 있습니다.</p>
-      <p className="mt-1.5 text-sm text-[#9a9aa4]">여러 AI 모델과 메타데이터를 함께 확인하는 중입니다.</p>
+      <p className="mt-1.5 text-sm text-[#9a9aa4]">{STEPS[stepIndex]}</p>
       <div className="mt-6 rounded-full border border-white/12 bg-white/5 px-4 py-1.5 font-[family-name:var(--font-inter)] text-sm font-semibold tabular-nums text-[#60a5fa]">
         {elapsedSeconds}초 경과
       </div>

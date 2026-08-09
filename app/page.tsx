@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, FileCheck2, Layers, ScanEye, X } from "lucide-react";
-import { useState } from "react";
+import { FileCheck2, Layers, ScanEye, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import AnalysisStepsLoader from "@/components/results/AnalysisStepsLoader";
 import AnalysisResultView from "@/components/results/AnalysisResultView";
 import AppFooter from "@/components/layout/AppFooter";
@@ -9,29 +9,21 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
+// 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
+// 잘라낸 정적 이미지 — 배지·문구·일러스트가 전부 그 안에 그려져 있어서 텍스트를
+// 따로 오버레이하지 않고 이미지 자체를 카드로 씀.
 const USE_CASES = [
-  { tag: "SNS", emoji: "📱", title: "화제의 그 사진,\n진짜일까요?", desc: "공유하기 전에 1초만 — 가짜 이미지 확산을 막습니다.", gradient: "from-[#0ea5e9] to-[#0c4a6e]" },
-  { tag: "온라인 거래", emoji: "📦", title: "상품 사진이\n거래의 신뢰가 됩니다", desc: "중고거래·쇼핑몰 상품 이미지의 진위를 미리 확인하세요.", gradient: "from-[#f5d0fe] to-[#7e22ce]" },
-  { tag: "음식 리뷰", emoji: "🍜", title: "리뷰 사진,\n믿고 주문하세요", desc: "보정을 넘어선 생성 이미지 리뷰를 걸러냅니다.", gradient: "from-[#fed7aa] to-[#9a3412]" },
-  { tag: "숙소·부동산", emoji: "🏠", title: "사진만 보고\n계약하기 전에", desc: "매물·숙소 사진이 실제 공간인지 먼저 검증하세요.", gradient: "from-[#bbf7d0] to-[#15803d]" },
-  { tag: "데이팅 앱", emoji: "💜", title: "프로필 사진 뒤의\n진짜 사람", desc: "AI로 만든 가짜 프로필로부터 안전한 만남을 지킵니다.", gradient: "from-[#fbcfe8] to-[#db2777]" },
-  { tag: "뉴스·미디어", emoji: "📰", title: "속보 속 그 장면,\n사실일까요?", desc: "기사에 실린 이미지의 생성 여부를 보도 전에 확인합니다.", gradient: "from-[#e0e7ff] to-[#4338ca]" },
+  { tag: "데이팅 앱", img: "/use-cases/dating.png" },
+  { tag: "중고 거래", img: "/use-cases/secondhand.png" },
+  { tag: "음식 리뷰", img: "/use-cases/food.png" },
+  { tag: "숙소, 부동산", img: "/use-cases/housing.png" },
+  { tag: "SNS", img: "/use-cases/sns.png" },
 ];
 
 const TECH = [
   { icon: <Layers className="h-5 w-5" />, title: "Fusion Engine", desc: "여러 AI 모델의 분석 결과를 융합해 하나의 모델만 봤을 때의 한계를 보완합니다." },
   { icon: <ScanEye className="h-5 w-5" />, title: "Multi-model Analysis", desc: "서로 다른 관점의 AI 모델이 이미지를 동시에 대조 분석합니다." },
   { icon: <FileCheck2 className="h-5 w-5" />, title: "Explainable Results", desc: "결과와 함께 판단 근거를 제공하여 사용자가 직접 확인하고 이해할 수 있습니다." },
-];
-
-// 히어로 뒤에 흩뿌려진 장식용 카드 — 실제 사진 대신 브랜드 톤 그라데이션 블록.
-const DECOR_CARDS = [
-  { className: "left-[4%] top-[8%] -rotate-12", gradient: "from-[#dbeafe] to-[#93c5fd]" },
-  { className: "right-[6%] top-[4%] rotate-6", gradient: "from-[#0ea5e9] to-[#0c4a6e]" },
-  { className: "left-[10%] bottom-[6%] rotate-6", gradient: "from-[#e0e7ff] to-[#4338ca]" },
-  { className: "right-[10%] bottom-[10%] -rotate-6", gradient: "from-[#fed7aa] to-[#9a3412]" },
-  { className: "left-[22%] top-[2%] rotate-3", gradient: "from-[#bbf7d0] to-[#15803d]" },
-  { className: "right-[22%] bottom-[2%] -rotate-3", gradient: "from-[#fbcfe8] to-[#db2777]" },
 ];
 
 async function analyzeImageFile(file: File): Promise<AnalysisResult> {
@@ -59,6 +51,23 @@ export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 익스텐션 데모 영상 — 참고 사이트와 동일하게 화면에 보일 때만 재생하고
+  // 벗어나면 멈춤(항상 자동재생하는 것보다 배터리/리소스 부담이 적음).
+  const extVideoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const video = extVideoRef.current;
+    if (!video) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) video.play().catch(() => {});
+        else video.pause();
+      },
+      { threshold: 0.45 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
 
   const handleAnalyze = async () => {
     if (!selectedFile) {
@@ -96,25 +105,29 @@ export default function Home() {
 
       {showHero && (
         <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black py-20 text-center">
-          {/* 장식용 그라데이션 카드 — 실사진 없이 브랜드 톤으로 대체 */}
+          {/* 장식용 배경 사진 — 디자인 목업(검증 전/메인 프레임)에서 잘라낸 정적
+              이미지 2장을 좌/우에 배치. 가운데(업로드 박스·버튼)와 겹치지 않도록
+              그 부분을 제외하고 잘라뒀음. */}
           <div className="pointer-events-none absolute inset-0 hidden sm:block" aria-hidden="true">
-            {DECOR_CARDS.map((c, i) => (
-              <div
-                key={i}
-                className={`absolute h-24 w-20 rounded-2xl bg-gradient-to-br opacity-25 blur-[1px] ${c.className} ${c.gradient}`}
-              />
-            ))}
+            <div className="relative mx-auto h-full max-w-4xl">
+              {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음 */}
+              <img src="/hero-photos-left.png" alt="" className="absolute left-0 top-4 w-[300px]" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음 */}
+              <img src="/hero-photos-right.png" alt="" className="absolute right-0 top-4 w-[280px]" />
+            </div>
           </div>
 
           <div className="relative mx-auto max-w-2xl px-6">
-            <h1 className="text-4xl font-bold tracking-tight text-[#f4f4f6] lg:text-5xl">더 확실한 판단을 위한 이미지 검증</h1>
-            <p className="mt-4 text-[15px] leading-relaxed text-[#9a9aa4]">
+            <h1 className="animate-fade-in-up text-4xl font-bold tracking-tight text-[#f4f4f6] lg:text-5xl">
+              더 확실한 판단을 위한 이미지 검증
+            </h1>
+            <p className="animate-fade-in-up mt-4 text-[15px] leading-relaxed text-[#9a9aa4] [animation-delay:120ms]">
               imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 포렌식 분석으로 검증하고,
               <br className="hidden sm:block" />
               판단 근거까지 제공하는 이미지 검증 서비스입니다.
             </p>
 
-            <div className="mt-10 flex flex-col items-center gap-4">
+            <div className="animate-fade-in-up mt-10 flex flex-col items-center gap-4 [animation-delay:240ms]">
               <ImageUploader
                 previewUrl={previewUrl}
                 fileName={selectedFile?.name ?? null}
@@ -134,7 +147,7 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={handleAnalyze}
+                onClick={() => handleAnalyze()}
                 className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
               >
                 이미지 검증하기
@@ -190,7 +203,7 @@ export default function Home() {
               </div>
             </section>
 
-            {/* 이런 상황에서 쓰세요 — 가로 스크롤 카드 */}
+            {/* 이런 상황에서 쓰세요 — 좌측으로 계속 흘러가는 카드 행 */}
             <section className="mt-24 text-center">
               <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">이미지를 믿기 어려운 AI 시대</h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#9a9aa4]">
@@ -198,20 +211,14 @@ export default function Home() {
                 <br className="hidden sm:block" />
                 중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.
               </p>
-              <div className="mt-10 -mx-6 flex snap-x gap-4 overflow-x-auto px-6 pb-4">
-                {USE_CASES.map((uc) => (
-                  <article
-                    key={uc.tag}
-                    className={`relative flex w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-gradient-to-br p-5 text-left ${uc.gradient}`}
-                    style={{ minHeight: 230 }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                    <span className="relative w-fit rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur">{uc.tag}</span>
-                    <span className="relative mt-auto text-3xl">{uc.emoji}</span>
-                    <h3 className="relative mt-2 whitespace-pre-line text-[15px] font-extrabold leading-snug text-white">{uc.title}</h3>
-                    <p className="relative mt-1.5 text-xs leading-relaxed text-white/85">{uc.desc}</p>
-                  </article>
-                ))}
+              <div className="mt-10 overflow-hidden">
+                {/* 카드 목록을 통째로 두 번 이어붙여서 -50%까지 흘러가면 이음매 없이 반복 */}
+                <div className="animate-marquee flex w-max gap-4">
+                  {[...USE_CASES, ...USE_CASES].map((uc, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음
+                    <img key={`${uc.tag}-${i}`} src={uc.img} alt={uc.tag} className="h-[312px] w-[220px] shrink-0 rounded-2xl" />
+                  ))}
+                </div>
               </div>
             </section>
 
@@ -234,20 +241,14 @@ export default function Home() {
               </div>
             </section>
 
-            {/* 익스텐션 홍보 */}
+            {/* 익스텐션 홍보 — 참고 사이트(PART 5 · EXTENSION VIDEO)와 동일한 구성 */}
             <section className="mt-24 text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">우클릭 한 번으로 이미지를 바로 검증하세요</h2>
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">브라우저 익스텐션으로, 보던 화면 그대로</h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#9a9aa4]">
-                별도의 업로드 없이, 보고 있는 이미지에서 바로 분석 결과를 확인할 수 있습니다.
+                설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든 우클릭으로 바로 검증할 수 있습니다.
               </p>
-              <div className="mx-auto mt-10 flex max-w-sm flex-col items-center gap-6 rounded-3xl border border-white/8 bg-white/[0.04] p-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#52bdff]/15">
-                  <Check className="h-6 w-6 text-[#52bdff]" />
-                </div>
-                <div>
-                  <div className="text-lg font-extrabold text-[#f4f4f6]">Imalytix</div>
-                  <p className="mt-1 text-sm text-[#9a9aa4]">판단을 돕는 이미지 신뢰 검증</p>
-                </div>
+              <div className="mx-auto mt-10 max-w-[860px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b21] shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
+                <video ref={extVideoRef} src="/extension-demo.mp4" muted loop playsInline preload="metadata" className="block w-full bg-black" />
               </div>
               <a
                 href="#top"
