@@ -15,10 +15,14 @@ import type { AnalysisResult } from "@/types/analysis";
 // 회전이 0으로 상쇄돼야 하는데 실제로는 카드가 비스듬히 나오는 문제가
 // 반복돼서 — 원인을 더 파고들기보다, 애초에 회전 합성에 기대지 않는 이
 // 방식이 훨씬 확실하고 검증하기도 쉬움(계산 결과가 눈에 보이는 숫자라서).
-const ARCH_PIVOT_TOP = 320; // px, 아치 중심점의 세로 위치(섹션 상단 기준)
-const ARCH_RADIUS = 320; // px — 전보다 키워서 카드 사이 간격(호의 길이)을 넓힘
-const ARCH_CARD_W = 115; // px — 대신 카드는 살짝 줄여서 겹침을 줄임
-const ARCH_CARD_H = 140; // px, ARCH_CARD_W * 1.22
+const ARCH_PIVOT_TOP = 340; // px — 전보다 더 내려서 가장 높이 뜨는(각도가 0에
+// 가까운) 카드도 섹션 위쪽에서 넉넉히(약 45px) 떨어지도록 함(전엔 6px 정도라
+// 사실상 거의 잘려 보였음 — "다 보이게 해달라"는 요청 반영).
+const ARCH_RADIUS = 300; // px
+const ARCH_CARD_W = 100; // px — 카드 폭(100)과 각도 간격(약 19~22°)을 함께
+// 조정해서, 호의 길이(반지름×각도)가 카드 폭과 거의 같아지도록 함 — 그래야
+// 카드끼리 겹치지 않고 거의 딱 붙는 정도로만 배치됨.
+const ARCH_CARD_H = 122; // px, ARCH_CARD_W * 1.22
 
 // 각도(호 위 위치)와 기울기(카드 자체의 회전)는 서로 다른 목적 — 각도는 카드가
 // "어디에" 있는지, 기울기는 가운데서 멀어질수록 카드가 "얼마나 기울어 보이는지".
@@ -35,14 +39,14 @@ function archCard(src: string, angleDeg: number) {
 }
 
 const ARCH_CARDS = [
-  archCard("/hero-photos/hero-1.jpg", -70),
-  archCard("/hero-photos/hero-2.jpg", -49),
-  archCard("/hero-photos/hero-3.jpg", -30),
-  archCard("/hero-photos/hero-4.jpg", -10),
-  archCard("/hero-photos/hero-5.jpg", 11),
-  archCard("/hero-photos/hero-6.jpg", 31),
-  archCard("/hero-photos/hero-7.jpg", 50),
-  archCard("/hero-photos/hero-8.jpg", 70),
+  archCard("/hero-photos/hero-1.jpg", -68),
+  archCard("/hero-photos/hero-2.jpg", -46),
+  archCard("/hero-photos/hero-3.jpg", -27),
+  archCard("/hero-photos/hero-4.jpg", -8),
+  archCard("/hero-photos/hero-5.jpg", 10),
+  archCard("/hero-photos/hero-6.jpg", 29),
+  archCard("/hero-photos/hero-7.jpg", 48),
+  archCard("/hero-photos/hero-8.jpg", 68),
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
