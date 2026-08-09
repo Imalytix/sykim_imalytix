@@ -9,22 +9,20 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
-// 히어로 위쪽에 아치 모양으로 흩어진 실제 사진들. 반지름/각도로 계산하는
-// 원 배치는 우리 히어로처럼 세로 공간이 짧은 섹션에서는 중앙(0도에 가까운)
-// 카드가 섹션 바깥으로 밀려 올라가 통째로 사라지는 문제가 계속 나서(참고
-// 프로토타입은 100vh 고정 히어로라 반지름을 크게 써도 괜찮지만 우리는 아님),
-// 좌표를 직접 지정하는 방식으로 바꿈 — left는 % (화면 폭에 비례해 반응형),
-// top은 px(섹션 상단에서 고정 거리)로 둬서 카드가 섹션 밖으로 사라질 일이
-// 없도록 항상 안전한 범위 안에 있음.
+// 히어로 위쪽에 흩어진 실제 사진들 — 참고 프로토타입 실제 화면(모두 정적
+// 스크린샷 기준) 배치를 좌표로 옮김: 가운데 하나는 크고 또렷하게(hero), 나머지는
+// 좌우로 갈수록 더 작고 흐리게. 스크롤 연동 효과는 보류하고 정적 배치만 반영.
+// left는 %(화면 폭 비례), top/width/height는 px(섹션 상단 기준 고정값)로 둬서
+// 세로 공간이 짧은 우리 히어로에서도 카드가 섹션 밖으로 사라지지 않게 함.
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", leftPct: 15, topPx: 165, rotate: -9 },
-  { src: "/hero-photos/hero-2.jpg", leftPct: 27, topPx: 105, rotate: -6 },
-  { src: "/hero-photos/hero-3.jpg", leftPct: 37, topPx: 70, rotate: -4 },
-  { src: "/hero-photos/hero-4.jpg", leftPct: 46, topPx: 55, rotate: 2 },
-  { src: "/hero-photos/hero-5.jpg", leftPct: 55, topPx: 58, rotate: -3 },
-  { src: "/hero-photos/hero-6.jpg", leftPct: 64, topPx: 80, rotate: 5 },
-  { src: "/hero-photos/hero-7.jpg", leftPct: 74, topPx: 115, rotate: 7 },
-  { src: "/hero-photos/hero-8.jpg", leftPct: 86, topPx: 160, rotate: 9 },
+  { src: "/hero-photos/hero-1.jpg", leftPct: 50, topPx: 95, width: 150, height: 155, rotate: 0, opacity: 0.85, isHero: true },
+  { src: "/hero-photos/hero-2.jpg", leftPct: 33, topPx: 140, width: 155, height: 190, rotate: -9, opacity: 0.35 },
+  { src: "/hero-photos/hero-3.jpg", leftPct: 18, topPx: 230, width: 145, height: 175, rotate: -7, opacity: 0.3 },
+  { src: "/hero-photos/hero-4.jpg", leftPct: 4, topPx: 185, width: 130, height: 160, rotate: -11, opacity: 0.26 },
+  { src: "/hero-photos/hero-5.jpg", leftPct: 67, topPx: 140, width: 155, height: 190, rotate: 9, opacity: 0.35 },
+  { src: "/hero-photos/hero-6.jpg", leftPct: 82, topPx: 230, width: 145, height: 175, rotate: 7, opacity: 0.3 },
+  { src: "/hero-photos/hero-7.jpg", leftPct: 96, topPx: 185, width: 130, height: 160, rotate: 11, opacity: 0.26 },
+  { src: "/hero-photos/hero-8.jpg", leftPct: 12, topPx: 340, width: 120, height: 145, rotate: -13, opacity: 0.2 },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -69,30 +67,6 @@ export default function Home() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // 아치 카드 전체가 스크롤에 맞춰 시계방향으로 살짝 돌아가고, 그중 첫 번째
-  // 카드(hero-1)만 스크롤할수록 점점 커지고 진해지면서 "결과처럼" 강조되는
-  // 효과 — 참고 프로토타입의 스크롤 연동 아치를 그대로 재현하는 대신(스크롤
-  // 위치마다 반지름·카드 폭을 실시간 재계산하는 커스텀 물리 엔진이라 깨지기
-  // 쉬움), 스크롤 진행도(0~1)만 계산해서 CSS transform에 흘려보내는 가벼운
-  // 방식으로 단순화.
-  const [scrollProgress, setScrollProgress] = useState(0);
-  useEffect(() => {
-    let rafId: number | null = null;
-    const SCROLL_RANGE_PX = 650;
-    const onScroll = () => {
-      if (rafId !== null) return;
-      rafId = requestAnimationFrame(() => {
-        setScrollProgress(Math.min(1, window.scrollY / SCROLL_RANGE_PX));
-        rafId = null;
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, []);
 
   // "결과만이 아닌..." 예시 카드 — 화면에 스크롤되어 들어올 때마다 0%에서
   // 75%까지 게이지가 채워지고 숫자가 오르며, 다 오르고 나서 "높음" 배지와
@@ -213,35 +187,32 @@ export default function Home() {
 
       {showHero && (
         <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black py-20 text-center">
-          {/* 아치형 사진 카드 — 클릭하면 그 사진으로 바로 검증 시작. 전체가
-              스크롤에 맞춰 살짝 회전하고, 첫 번째 카드는 스크롤할수록 커지고
-              진해지면서 "결과가 나타나는" 듯한 느낌을 줌. */}
-          <div className="pointer-events-none absolute inset-0 hidden sm:block" style={{ transform: `rotate(${scrollProgress * 22}deg)` }}>
-            {ARCH_CARDS.map((c, i) => {
-              const isHero = i === 0;
-              const baseTransform = `translate(-50%, -50%) rotate(${c.rotate}deg)`;
-              return (
-                <button
-                  key={c.src}
-                  type="button"
-                  onClick={() => handleSampleClick(c.src)}
-                  aria-label="샘플 이미지로 바로 검증하기"
-                  className={`pointer-events-auto absolute h-28 w-24 overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
-                    isHero ? "" : "opacity-25 hover:opacity-80 hover:scale-105"
-                  }`}
-                  style={{
-                    left: `${c.leftPct}%`,
-                    top: `${c.topPx}px`,
-                    transform: isHero ? `${baseTransform} scale(${1 + scrollProgress * 0.7}) translateY(${scrollProgress * 24}px)` : baseTransform,
-                    opacity: isHero ? 0.25 + scrollProgress * 0.75 : undefined,
-                    zIndex: isHero ? 10 : 1,
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
-                  <img src={c.src} alt="" className="h-full w-full object-cover" />
-                </button>
-              );
-            })}
+          {/* 정적 사진 배치 — 가운데 하나는 크고 또렷하게(hero), 나머지는 좌우로
+              갈수록 작고 흐리게. 클릭하면 그 사진으로 바로 검증 시작. */}
+          <div className="pointer-events-none absolute inset-0 hidden sm:block">
+            {ARCH_CARDS.map((c) => (
+              <button
+                key={c.src}
+                type="button"
+                onClick={() => handleSampleClick(c.src)}
+                aria-label="샘플 이미지로 바로 검증하기"
+                className={`pointer-events-auto absolute overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
+                  c.isHero ? "" : "hover:opacity-80 hover:scale-105"
+                }`}
+                style={{
+                  left: `${c.leftPct}%`,
+                  top: `${c.topPx}px`,
+                  width: `${c.width}px`,
+                  height: `${c.height}px`,
+                  opacity: c.opacity,
+                  transform: `translate(-50%, -50%) rotate(${c.rotate}deg)`,
+                  zIndex: c.isHero ? 10 : 1,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
+                <img src={c.src} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
           </div>
 
           <div className="relative mx-auto max-w-2xl px-6">
