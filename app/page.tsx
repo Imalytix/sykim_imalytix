@@ -20,14 +20,13 @@ import type { AnalysisResult } from "@/types/analysis";
 // 평평해짐) — 그래서 계속 바깥쪽 카드끼리만 겹치는 문제가 반복됐음. 대신 원하는
 // 가로 간격(x, 120px 등간격)을 먼저 정하고 거기서 각도를 역산(asin)해서, 카드
 // 위치와 무관하게 실제 화면상 가로 간격이 항상 동일하도록 함.
-const ARCH_RADIUS = 500; // px
+const ARCH_RADIUS = 700; // px — 전보다 훨씬 키워서 아치를 완만하게(납작하게) 만듦
 const ARCH_CARD_W = 85; // px
 const ARCH_CARD_H = 104; // px, ARCH_CARD_W * 1.22
-const ARCH_PIVOT_TOP = 577; // px — 아치 중심점(원점) 위치. 섹션 상단에서 봤을 때
-// 실제로는 이 좌표보다 한참 위(가장 높은 카드 top이 섹션 상단에서 약 28px 아래)
-// 에 카드들이 배치됨 — 원의 중심이 눈에 보이는 호 자체보다 훨씬 아래에 있는 것과
-// 같은 이치. pt-96(섹션 상단 패딩 384px)은 그대로 둬도 가장 낮은 카드(약 366px)가
-// 헤드라인 시작 전에 여유 있게 들어감.
+const ARCH_PIVOT_TOP = 840; // px — 가장 높은(중앙) 카드도 섹션 상단에서 약 90px
+// 떨어지도록 여유를 크게 잡음(전엔 약 28px이라 헤더 바로 아래라 잘려 보인다는
+// 피드백이 있었음). pt-96(섹션 상단 패딩 384px)은 그대로 둬도 가장 낮은(바깥쪽)
+// 카드가 약 366px로 헤드라인 시작 전에 들어감.
 
 function archCard(src: string, xOffsetPx: number) {
   const angleDeg = (Math.asin(xOffsetPx / ARCH_RADIUS) * 180) / Math.PI;
@@ -41,14 +40,14 @@ function archCard(src: string, xOffsetPx: number) {
 }
 
 const ARCH_CARDS = [
-  archCard("/hero-photos/hero-1.jpg", -420),
-  archCard("/hero-photos/hero-2.jpg", -300),
-  archCard("/hero-photos/hero-3.jpg", -180),
-  archCard("/hero-photos/hero-4.jpg", -60),
-  archCard("/hero-photos/hero-5.jpg", 60),
-  archCard("/hero-photos/hero-6.jpg", 180),
-  archCard("/hero-photos/hero-7.jpg", 300),
-  archCard("/hero-photos/hero-8.jpg", 420),
+  archCard("/hero-photos/hero-1.jpg", -455),
+  archCard("/hero-photos/hero-2.jpg", -325),
+  archCard("/hero-photos/hero-3.jpg", -195),
+  archCard("/hero-photos/hero-4.jpg", -65),
+  archCard("/hero-photos/hero-5.jpg", 65),
+  archCard("/hero-photos/hero-6.jpg", 195),
+  archCard("/hero-photos/hero-7.jpg", 325),
+  archCard("/hero-photos/hero-8.jpg", 455),
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
