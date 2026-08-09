@@ -9,20 +9,25 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
-// 히어로 위쪽에 흩어진 실제 사진들 — 참고 프로토타입 실제 화면(모두 정적
-// 스크린샷 기준) 배치를 좌표로 옮김: 가운데 하나는 크고 또렷하게(hero), 나머지는
-// 좌우로 갈수록 더 작고 흐리게. 스크롤 연동 효과는 보류하고 정적 배치만 반영.
-// left는 %(화면 폭 비례), top/width/height는 px(섹션 상단 기준 고정값)로 둬서
-// 세로 공간이 짧은 우리 히어로에서도 카드가 섹션 밖으로 사라지지 않게 함.
+// 히어로 위쪽 아치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
+// rotate(-각도))으로 진짜 원호를 그림. 아래 상수들은 손으로 직접 검산한
+// 값(786px 폭 컨테이너, 320px 헤드룸 기준 — ARCH_PIVOT_TOP/ARCH_RADIUS 참고):
+// 가장 가파른(각도 10°) 카드도 섹션 위로 16px만 살짝 걸치고, 가장 눕는(각도
+// 78°) 카드도 헤드라인 시작 전에 확실히 끝나도록 계산됨.
+const ARCH_PIVOT_TOP = 280; // px, 아치 중심점의 세로 위치(섹션 상단 기준)
+const ARCH_RADIUS = 300; // px
+const ARCH_CARD_W = 78; // px
+const ARCH_CARD_H = 95; // px, ARCH_CARD_W * 1.22
+
 const ARCH_CARDS = [
-  { src: "/hero-photos/hero-1.jpg", leftPct: 50, topPx: 85, width: 140, height: 145, rotate: 0, opacity: 0.85, isHero: true },
-  { src: "/hero-photos/hero-2.jpg", leftPct: 33, topPx: 135, width: 145, height: 170, rotate: -9, opacity: 0.35 },
-  { src: "/hero-photos/hero-3.jpg", leftPct: 18, topPx: 185, width: 135, height: 150, rotate: -7, opacity: 0.3 },
-  { src: "/hero-photos/hero-4.jpg", leftPct: 4, topPx: 150, width: 125, height: 155, rotate: -11, opacity: 0.26 },
-  { src: "/hero-photos/hero-5.jpg", leftPct: 67, topPx: 135, width: 145, height: 170, rotate: 9, opacity: 0.35 },
-  { src: "/hero-photos/hero-6.jpg", leftPct: 82, topPx: 185, width: 135, height: 150, rotate: 7, opacity: 0.3 },
-  { src: "/hero-photos/hero-7.jpg", leftPct: 96, topPx: 150, width: 125, height: 155, rotate: 11, opacity: 0.26 },
-  { src: "/hero-photos/hero-8.jpg", leftPct: 12, topPx: 330, width: 115, height: 140, rotate: -13, opacity: 0.2 },
+  { src: "/hero-photos/hero-1.jpg", angle: -78 },
+  { src: "/hero-photos/hero-2.jpg", angle: -56 },
+  { src: "/hero-photos/hero-3.jpg", angle: -36 },
+  { src: "/hero-photos/hero-4.jpg", angle: -12 },
+  { src: "/hero-photos/hero-5.jpg", angle: 10 },
+  { src: "/hero-photos/hero-6.jpg", angle: 30 },
+  { src: "/hero-photos/hero-7.jpg", angle: 52 },
+  { src: "/hero-photos/hero-8.jpg", angle: 76 },
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -186,13 +191,13 @@ export default function Home() {
       <AppHeader />
 
       {showHero && (
-        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-64 text-center">
-          {/* 정적 사진 배치 — 가운데 하나는 크고 또렷하게(hero), 나머지는 좌우로
-              갈수록 작고 흐리게. 클릭하면 그 사진으로 바로 검증 시작.
-              leftPct는 섹션 전체 폭이 아니라 이 안쪽의 max-w-3xl 박스 기준 —
-              그래야 화면이 넓어져도 카드들이 참고 사이트처럼 중앙에 모여있고
-              양옆으로 쫙 퍼지지 않음(전에는 섹션 전체 폭 기준이라 와이드
-              모니터에서 카드들이 화면 가장자리까지 흩어져 보였음). */}
+        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-80 text-center">
+          {/* 원호(아치) 배치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
+              rotate(-각도))을 그대로 씀: 피벗을 기준으로 각 카드가 정확히
+              원 둘레 위에 놓이고, 뒤의 rotate(-각도)가 카드 자체는 다시 수평으로
+              세워줌. left:50%가 섹션 전체 폭이 아니라 안쪽 max-w-3xl 박스
+              기준이라, 화면이 아무리 넓어도 중앙에 모여있음(이전에는 섹션 전체
+              폭 기준이라 와이드 모니터에서 화면 가장자리까지 흩어져 보였음). */}
           <div className="pointer-events-none absolute inset-0 hidden sm:block">
             <div className="relative mx-auto h-full max-w-3xl">
               {ARCH_CARDS.map((c) => (
@@ -201,17 +206,19 @@ export default function Home() {
                   type="button"
                   onClick={() => handleSampleClick(c.src)}
                   aria-label="샘플 이미지로 바로 검증하기"
-                  className={`pointer-events-auto absolute overflow-hidden rounded-2xl shadow-lg transition-[opacity,transform] duration-300 ${
-                    c.isHero ? "" : "hover:opacity-80 hover:scale-105"
-                  }`}
+                  className="pointer-events-auto absolute overflow-hidden rounded-2xl opacity-40 shadow-lg transition-[opacity,transform] duration-300 hover:scale-105 hover:opacity-85"
                   style={{
-                    left: `${c.leftPct}%`,
-                    top: `${c.topPx}px`,
-                    width: `${c.width}px`,
-                    height: `${c.height}px`,
-                    opacity: c.opacity,
-                    transform: `translate(-50%, -50%) rotate(${c.rotate}deg)`,
-                    zIndex: c.isHero ? 10 : 1,
+                    left: "50%",
+                    top: `${ARCH_PIVOT_TOP}px`,
+                    width: `${ARCH_CARD_W}px`,
+                    height: `${ARCH_CARD_H}px`,
+                    // rotate()의 회전축은 기본적으로 엘리먼트 자기 자신의 중심(50% 50%)인데,
+                    // left/top은 엘리먼트의 좌상단 모서리 기준이라 마진으로 절반만큼
+                    // 당겨줘야 (left, top) 지점이 곧 회전 중심(피벗)이 됨 — 이게 없으면
+                    // 카드 크기의 절반만큼 피벗이 어긋나서 원 계산이 다 틀어짐.
+                    marginLeft: `${-ARCH_CARD_W / 2}px`,
+                    marginTop: `${-ARCH_CARD_H / 2}px`,
+                    transform: `rotate(${c.angle}deg) translateY(-${ARCH_RADIUS}px) rotate(${-c.angle}deg)`,
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
