@@ -10,7 +10,9 @@ interface ScoreGaugeProps {
 // Colors extracted directly from the design handoff's Figma export (pixel-
 // sampled): #52bdff blue / #ffca1a amber / #f23e3e red. Bands match its
 // "AI 탐지율 판단 기준" legend exactly: 0-35% 낮음, 36-64% 중간, 65-100% 높음.
-function toneForScore(score: number): { ring: string; track: string; badgeBg: string; badgeText: string; shortLabel: string } {
+// Exported so other result-page elements (bounding boxes, key-finding icons)
+// can carry the same tier color instead of a fixed blue everywhere.
+export function toneForScore(score: number): { ring: string; track: string; badgeBg: string; badgeText: string; shortLabel: string } {
   if (score >= 65) return { ring: "#f23e3e", track: "rgba(242,62,62,0.12)", badgeBg: "#f23e3e", badgeText: "#ffffff", shortLabel: "높음" };
   if (score >= 36) return { ring: "#ffca1a", track: "rgba(255,202,26,0.16)", badgeBg: "#ffca1a", badgeText: "#1a1a1a", shortLabel: "중간" };
   return { ring: "#52bdff", track: "rgba(82,189,255,0.14)", badgeBg: "#52bdff", badgeText: "#ffffff", shortLabel: "낮음" };

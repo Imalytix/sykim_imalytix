@@ -9,10 +9,20 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
-// 히어로 아치에 올릴 실제 사진 8장. 첫 번째(hero-1)가 스크롤 시 아치를
-// 이탈해 아래 "판단 근거" 데모 쪽으로 날아가는 카드로 지정된다(참고 사이트
-// main.js의 cards[0]/data-hero-card와 동일한 역할).
+// 히어로 아치에 올릴 실제 사진. 첫 번째(hero-1)가 스크롤 시 아치를 이탈해
+// 아래 "판단 근거" 데모 쪽으로 날아가는 카드로 지정된다(참고 사이트 main.js의
+// cards[0]/data-hero-card와 동일한 역할). 실사진은 8장뿐이라, 참고 사이트의
+// 16장 링 밀도에 맞춰 두 바퀴 반복해 16장을 채운다 — layoutRing()이 카드
+// 수(n)로 360°를 나누는 방식이라 반복해도 배치 자체는 그대로 자연스럽게 잘 됨.
 const ARCH_PHOTOS = [
+  "/hero-photos/hero-1.jpg",
+  "/hero-photos/hero-2.jpg",
+  "/hero-photos/hero-3.jpg",
+  "/hero-photos/hero-4.jpg",
+  "/hero-photos/hero-5.jpg",
+  "/hero-photos/hero-6.jpg",
+  "/hero-photos/hero-7.jpg",
+  "/hero-photos/hero-8.jpg",
   "/hero-photos/hero-1.jpg",
   "/hero-photos/hero-2.jpg",
   "/hero-photos/hero-3.jpg",
@@ -467,7 +477,7 @@ export default function Home() {
               <div ref={ringRef} className="hero-ring" aria-hidden="true">
                 {ARCH_PHOTOS.map((src, i) => (
                   <button
-                    key={src}
+                    key={`${src}-${i}`}
                     type="button"
                     ref={(el) => {
                       cardRefs.current[i] = el;
@@ -663,9 +673,9 @@ export default function Home() {
               </div>
               <a
                 href="#top"
-                className="mt-8 inline-block rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
+                className="mt-8 inline-block rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
               >
-                무료로 시작하기
+                <span className="cta-sheen">무료로 시작하기</span>
               </a>
             </section>
           </>

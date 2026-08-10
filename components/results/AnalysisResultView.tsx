@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import ErrorState from "@/components/results/ErrorState";
 import FeedbackForm from "@/components/results/FeedbackForm";
 import RecommendationPanel from "@/components/results/RecommendationPanel";
-import ScoreGauge from "@/components/results/ScoreGauge";
+import ScoreGauge, { toneForScore } from "@/components/results/ScoreGauge";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import type { AnalysisResult } from "@/types/analysis";
 import { isValidBBox } from "@/lib/utils/bbox";
@@ -20,14 +20,19 @@ const SEVERITY_CONFIG: Record<string, { label: string; badge: string; dot: strin
   low: { label: "위험도 낮음", badge: "bg-[#52bdff]/10 text-[#1a6fb0]", dot: "bg-[#52bdff]" },
 };
 
-/** "핵심 결과" row — icon-circle + title/sub (inside the white card, light). */
-function KeyFindingRow({ ok, title, sub }: { ok: boolean; title: string; sub: string }) {
+/** "핵심 결과" row — icon-circle + title/sub (inside the white card, light).
+ *  A confirmed/positive finding (ok=true) takes the same low/medium/high
+ *  tier color as the score gauge (파란/노란/빨강) — a "제작 이력이 확인되었습니다"
+ *  row should read as calmer when the overall verdict is 낮음 and more
+ *  alarming when it's 높음, matching the design handoff's 4-variant color
+ *  spec. A negative/not-found row (ok=false) stays neutral gray regardless
+ *  of tier — absence of evidence isn't itself a tier-colored signal. */
+function KeyFindingRow({ ok, title, sub, tone }: { ok: boolean; title: string; sub: string; tone: { badgeBg: string; badgeText: string } }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-black/6 bg-black/[0.02] px-4 py-3">
       <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-          ok ? "bg-[#52bdff]/15 text-[#1a8fdb]" : "bg-black/8 text-[#6a6a6a]"
-        }`}
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${ok ? "" : "bg-black/8 text-[#6a6a6a]"}`}
+        style={ok ? { backgroundColor: tone.badgeBg, color: tone.badgeText } : undefined}
       >
         {ok ? <Check className="h-4 w-4" /> : <span className="text-sm font-bold">✕</span>}
       </div>
@@ -114,6 +119,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
   const camera = metadata?.camera_info ?? null;
   const suspiciousRegions = analysisResult.suspicious_regions ?? [];
   const scorePercent = clampPercent(analysisResult.final_result.ai_probability);
+  const tone = toneForScore(scorePercent);
   const allProvidersFailed = visionResults.length > 0 && visionResults.every((v) => v.error_message);
 
   const duplicateCheck = analysisResult.duplicate_check;
@@ -214,29 +220,23 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                           onClick={() => setSelectedRegionIndex((prev) => (prev === i ? null : i))}
                           aria-label={`의심 부위 ${i + 1}: ${region.label} — 설명 보기`}
                           aria-pressed={selectedRegionIndex === i}
-                          className={`pointer-events-auto absolute rounded-md border-2 transition-colors ${
-                            selectedRegionIndex === i ? "border-[#1a6fb0] bg-[#52bdff]/20" : "border-[#52bdff] hover:bg-[#52bdff]/10"
-                          }`}
+                          className="pointer-events-auto absolute rounded-md border-2 transition-colors"
                           style={{
                             left: `${region.bbox.x1 * 100}%`,
                             top: `${region.bbox.y1 * 100}%`,
                             width: `${(region.bbox.x2 - region.bbox.x1) * 100}%`,
                             height: `${(region.bbox.y2 - region.bbox.y1) * 100}%`,
+                            borderColor: tone.ring,
+                            backgroundColor: selectedRegionIndex === i ? `${tone.ring}33` : "transparent",
                           }}
                         >
-                          {/* 모서리 핸들 — 디자인 목업의 선택 박스 스타일 */}
-                          <span
-                            className={`absolute -top-1 -left-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
-                          />
-                          <span
-                            className={`absolute -top-1 -right-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
-                          />
-                          <span
-                            className={`absolute -bottom-1 -left-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
-                          />
-                          <span
-                            className={`absolute -bottom-1 -right-1 h-2 w-2 rounded-[2px] ${selectedRegionIndex === i ? "bg-[#1a6fb0]" : "bg-[#52bdff]"}`}
-                          />
+                          {/* 모서리 핸들 — 디자인 목업의 선택 박스 스타일. 박스 색은
+                              전체 판정 등급(낮음/중간/높음)과 같은 톤을 씀 —
+                              "AI 탐지율 판단 기준" 색상 스펙과 동일. */}
+                          <span className="absolute -top-1 -left-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
+                          <span className="absolute -bottom-1 -left-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
+                          <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
                         </button>
                       ) : null,
                     )}
@@ -281,7 +281,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                   <div className="flex flex-col gap-2">
                     <p className="text-[13px] font-bold text-[#1a1a1a]">핵심 결과</p>
                     {keyFindings.map((f, i) => (
-                      <KeyFindingRow key={i} ok={f.ok} title={f.title} sub={f.sub} />
+                      <KeyFindingRow key={i} ok={f.ok} title={f.title} sub={f.sub} tone={tone} />
                     ))}
                   </div>
 
