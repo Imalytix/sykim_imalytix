@@ -36,7 +36,15 @@ async function saveToSupabase(requestId: string, buffer: Buffer): Promise<string
   try {
     await ensureBucket(supabase);
     const objectPath = `${todayFolder()}/${requestId}.jpg`;
-    const { error } = await supabase.storage.from(BUCKET_NAME).upload(objectPath, buffer, {
+    // A raw Node Buffer as the upload body reproduced corrupted objects on
+    // the deployed (Vercel) runtime only — never locally, under `next dev`
+    // or a local production build — even after routing storage-js's fetch
+    // call around Next's Data Cache. A Blob goes through storage-js's
+    // FormData-encoded upload path instead of a raw-body fetch, which is
+    // the far more standard, widely-exercised code path across fetch/undici
+    // versions — confirmed live to produce a byte-identical valid JPEG on
+    // the actual deployment.
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(objectPath, new Blob([Uint8Array.from(buffer)], { type: "image/jpeg" }), {
       contentType: "image/jpeg",
       upsert: true,
     });
