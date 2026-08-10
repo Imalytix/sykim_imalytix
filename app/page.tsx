@@ -131,32 +131,36 @@ export default function Home() {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const phone = vw < 768;
+      const n = cardEls.length;
 
-      const cardW = cardEls[0].offsetWidth || 120;
-      const cardH = cardEls[0].offsetHeight || cardW * 1.22;
-
-      // 아치 중심을 화면 아래쪽에 두면 반지름을 크게 쓸 수 있어 카드 사이가
-      // 더 벌어진다(아래로 내려간 카드는 베일 그라데이션에 잠기므로 손해 없음).
-      // 폰에서는 반지름이 화면 폭에 묶여 작아지므로 중심을 거의 화면 중앙에 둔다.
+      // 닫힌 링(360°). n장을 균등하게 둘러 배치하므로 아무리 돌려도 끊긴
+      // 구간이 생기지 않는다 — 화면엔 아래쪽을 베일 그라데이션이 덮어서
+      // 반원처럼 보일 뿐. 아치 중심을 화면 아래쪽에 두면 반지름을 크게 쓸
+      // 수 있고, 폰에서는 반지름이 화면 폭에 묶여 작아지는 탓에 중심을
+      // 내리면 링 전체가 그라데이션 밑으로 사라져버려 거의 화면 중앙에 둔다.
       ringOffsetY = vh * (phone ? 0.02 : 0.28);
       const centerY = vh / 2 + ringOffsetY;
-      ringRadius = Math.min(centerY - 76 - cardH / 2, vw * (phone ? 0.54 : 0.46), 620);
+      const maxByWidth = Math.min(vw * (phone ? 0.54 : 0.46), 620);
 
-      // 카드가 겹치지 않을 만큼 호를 벌린다 — 부딪히는 건 호 안쪽 모서리라
-      // 간격 계산도 안쪽 반지름 기준.
-      const innerR = Math.max(60, ringRadius - cardH / 2);
-      const stepNeeded = ((cardW * ARC_GAP_RATIO) * 360) / (2 * Math.PI * innerR);
-      const arcSpan = Math.min(Math.max(240, stepNeeded * (cardEls.length - 1)), 330);
-      const arcStart = 270 - arcSpan / 2; // 언제나 꼭대기를 기준으로 대칭
+      // 반지름은 카드 크기에, 카드 크기는 반지름에 걸려 있어 서로를 문다.
+      // 둘레를 n장이 정확히 채우도록 카드 폭을 역산하고 두 번 수렴시킨다.
+      //   2π(R − 0.61w) = n · w · GAP  →  w = 2πR / (n·GAP + 1.22π)
+      let w = cardEls[0].offsetWidth || 120;
+      for (let pass = 0; pass < 2; pass++) {
+        ringRadius = Math.min(centerY - 76 - w * 0.61, maxByWidth); // 꼭대기가 내브를 피하도록
+        w = clamp((2 * Math.PI * ringRadius) / (n * ARC_GAP_RATIO + 1.22 * Math.PI), 46, 170);
+      }
+      document.documentElement.style.setProperty("--ring-card", `${w}px`);
+      ringRadius = Math.min(centerY - 76 - w * 0.61, maxByWidth);
 
-      const step = arcSpan / (cardEls.length - 1);
+      const step = 360 / n;
       cardEls.forEach((card, i) => {
         if (!card) return;
-        const deg = arcStart + step * i;
+        const deg = -90 + step * i; // 첫 카드(hero-1)가 꼭대기에서 시작
         const rad = (deg * Math.PI) / 180;
         const x = Math.cos(rad) * ringRadius;
         const y = Math.sin(rad) * ringRadius;
-        const tilt = deg + 90; // 카드가 호를 따라 부채꼴로 기울도록
+        const tilt = deg + 90; // 카드가 링을 따라 부채꼴로 기울도록
         card.dataset.x = String(x);
         card.dataset.y = String(y);
         card.dataset.tilt = String(tilt);
@@ -363,6 +367,28 @@ export default function Home() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [showHero]);
+
+  // "이런 상황에서 쓰세요" 마퀴 — 속도(px/초)가 화면 크기와 무관하게 항상
+  // 일정하도록, 카드 목록 한 벌의 실제 폭을 재서 재생 시간을 계산한다.
+  // 카드 목록을 두 번 이어붙였으므로 scrollWidth의 절반이 한 벌 폭.
+  const marqueeTrackRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const track = marqueeTrackRef.current;
+    if (!track) return;
+    const DRIFT_SPEED = 42; // px/s — 참고 사이트의 --drift-speed와 동일
+    function tuneDrift() {
+      const setWidth = track!.scrollWidth / 2;
+      if (!setWidth) return;
+      track!.style.setProperty("--drift-dur", `${setWidth / DRIFT_SPEED}s`);
+    }
+    tuneDrift();
+    window.addEventListener("resize", tuneDrift);
+    window.addEventListener("load", tuneDrift);
+    return () => {
+      window.removeEventListener("resize", tuneDrift);
+      window.removeEventListener("load", tuneDrift);
+    };
+  }, []);
 
   // 익스텐션 데모 영상 — 참고 사이트와 동일하게 화면에 보일 때만 재생하고
   // 벗어나면 멈춤(항상 자동재생하는 것보다 배터리/리소스 부담이 적음).
@@ -587,9 +613,9 @@ export default function Home() {
                 <br className="hidden sm:block" />
                 중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.
               </p>
-              <div className="mt-10 overflow-hidden">
+              <div className="marquee-viewport mt-10 overflow-hidden py-2">
                 {/* 카드 목록을 통째로 두 번 이어붙여서 -50%까지 흘러가면 이음매 없이 반복 */}
-                <div className="animate-marquee flex w-max gap-4">
+                <div ref={marqueeTrackRef} className="animate-marquee flex w-max gap-4">
                   {[...USE_CASES, ...USE_CASES].map((uc, i) => (
                     // eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음
                     <img key={`${uc.tag}-${i}`} src={uc.img} alt={uc.tag} className="h-[312px] w-[220px] shrink-0 rounded-2xl" />

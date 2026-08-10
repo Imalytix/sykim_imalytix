@@ -68,7 +68,15 @@ body {
 
 /* "이런 상황에서 쓰세요" 카드 행 — 좌측으로 천천히 계속 흘러가는 마퀴 연출.
    렌더링 쪽에서 카드 목록을 통째로 두 번 이어붙이고, -50% 지점까지만
-   옮기면 정확히 한 바퀴 돈 것처럼 이음매 없이 반복된다. */
+   옮기면 정확히 한 바퀴 돈 것처럼 이음매 없이 반복된다. 재생 시간(--drift-dur)
+   은 page.tsx가 실제 카드 목록 폭을 재서 속도(px/s)가 화면 크기와 무관하게
+   항상 일정하도록 계산해 넣는다(참고 사이트의 --drift-speed 방식과 동일).
+   양 끝을 흐리게 마스킹해서 카드가 화면 밖으로 자연스럽게 흘러 나가 보인다. */
+.marquee-viewport {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -79,10 +87,10 @@ body {
 }
 
 .animate-marquee {
-  animation: marquee 34s linear infinite;
+  animation: marquee var(--drift-dur, 34s) linear infinite;
 }
 
-.animate-marquee:hover {
+.marquee-viewport:hover .animate-marquee {
   animation-play-state: paused;
 }
 
