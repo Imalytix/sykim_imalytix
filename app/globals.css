@@ -7,6 +7,21 @@
 :root {
   --background: #0a0a0c;
   --foreground: #f4f4f6;
+  /* 아치 카드 크기(반지름/각도 등 배치 자체는 page.tsx의 layoutRing()이
+     매 스크롤/리사이즈마다 JS로 계산) — 참고 사이트(imalytix-web-deploy)의
+     --ring-card 값을 그대로 가져옴. */
+  --ring-card: clamp(88px, 10.5vw, 146px);
+}
+
+@media (max-width: 768px) {
+  :root {
+    --ring-card: 76px;
+  }
+}
+@media (max-width: 480px) {
+  :root {
+    --ring-card: 64px;
+  }
 }
 
 @theme inline {
@@ -20,6 +35,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* 아치 카드가 화면 가장자리 가까이 회전하며 퍼질 때 가로 스크롤바가 생기지
+     않도록(참고 사이트 body에도 동일하게 있음). */
+  overflow-x: hidden;
 }
 
 ::-webkit-scrollbar {
@@ -71,6 +89,242 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in-up,
   .animate-marquee {
+    animation: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   히어로 아치 + 스크롤 시 카드 한 장이 아래 결과 데모로 "날아가는" 연출.
+   참고 사이트(imalytix-web-deploy/css/style.css, js/main.js)의 구조를
+   그대로 이식 — 매 프레임 style을 직접 건드리는 부분이라 Tailwind
+   유틸리티보단 원본처럼 순수 CSS로 두는 게 계산/대조가 쉬움.
+   실제 애니메이션 로직(레이아웃 계산, rAF 스크롤 루프)은 app/page.tsx.
+   ══════════════════════════════════════════════════════════════ */
+
+.hero-pin {
+  height: 320vh;
+  position: relative;
+}
+.hero-pin__sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+.ring-card {
+  position: absolute;
+  width: var(--ring-card);
+  height: calc(var(--ring-card) * 1.22);
+  margin-left: calc(var(--ring-card) / -2);
+  margin-top: calc(var(--ring-card) * -0.61);
+  border-radius: 22px;
+  overflow: hidden;
+  background: transparent;
+  padding: 0;
+  opacity: 0.2;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+.ring-card:hover,
+.ring-card:focus-visible {
+  opacity: 0.72;
+  outline: none;
+}
+.ring-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 아래는 진하게, 위로 갈수록 옅게 — 카드가 하단에서부터 서서히 드러난다 */
+.hero-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    var(--background) 0%,
+    rgba(10, 10, 12, 0.98) 12%,
+    rgba(10, 10, 12, 0.86) 26%,
+    rgba(10, 10, 12, 0.55) 44%,
+    rgba(10, 10, 12, 0.22) 62%,
+    rgba(10, 10, 12, 0.04) 80%,
+    transparent 92%
+  );
+}
+
+.hero-hint {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #9a9aa4;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: hero-hint-bob 1.8s ease-in-out infinite;
+}
+@keyframes hero-hint-bob {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, 7px);
+  }
+}
+
+/* 아치를 이탈해 아래 결과 데모 쪽으로 날아가는 카드의 분신(clone) —
+   position:fixed라 어느 섹션에 있든 뷰포트 기준으로 자유롭게 움직임. */
+.fly-card {
+  position: fixed;
+  z-index: 60;
+  top: 0;
+  left: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  display: none;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.62),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  will-change: transform, width, height;
+}
+.fly-card.is-active {
+  display: block;
+}
+.fly-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ─────────── 결과 데모(판단 근거) — 스크롤 고정 파트 ─────────── */
+.verify-pin {
+  height: 340vh;
+  position: relative;
+}
+.verify-pin__sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(28px, 5vh, 48px);
+  overflow: hidden;
+  padding: 24px;
+  text-align: center;
+}
+.verify-stage {
+  display: flex;
+  gap: clamp(18px, 3vw, 40px);
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  max-width: 720px;
+}
+.verify-drop,
+.verify-result {
+  flex: 1 1 0;
+  max-width: 340px;
+  aspect-ratio: 1 / 0.92;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.verify-drop {
+  background:
+    linear-gradient(45deg, #232328 25%, transparent 25%),
+    linear-gradient(-45deg, #232328 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #232328 75%),
+    linear-gradient(-45deg, transparent 75%, #232328 75%);
+  background-size: 28px 28px;
+  background-position:
+    0 0,
+    0 14px,
+    14px -14px,
+    -14px 0px;
+  background-color: #141416;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drop-img {
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  opacity: 0;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  will-change: transform, opacity;
+}
+.drop-img.is-landed {
+  animation: verify-land 0.5s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+@keyframes verify-land {
+  0% {
+    transform: scale(1.07);
+  }
+  58% {
+    transform: scale(0.982);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.drop-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.verify-result {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .verify-stage {
+    flex-direction: column;
+    align-items: center;
+    max-width: 340px;
+  }
+  .verify-drop,
+  .verify-result {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: min(300px, 34vh);
+    aspect-ratio: 1 / 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-hint {
     animation: none;
   }
 }

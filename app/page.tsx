@@ -1,6 +1,6 @@
 "use client";
 
-import { FileCheck2, Layers, ScanEye, X } from "lucide-react";
+import { ChevronDown, FileCheck2, Layers, ScanEye, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AnalysisStepsLoader from "@/components/results/AnalysisStepsLoader";
 import AnalysisResultView from "@/components/results/AnalysisResultView";
@@ -9,45 +9,18 @@ import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
 import type { AnalysisResult } from "@/types/analysis";
 
-// 히어로 위쪽 아치 — CSS rotate()/translateY() 합성 트릭 대신, 각도별 x/y
-// 오프셋을 JS에서 직접 삼각함수로 미리 계산해 카드는 항상 회전 없이 반듯하게
-// 배치한다. rotate(각도) translateY(-r) rotate(-각도) 방식은 이론상 최종
-// 회전이 0으로 상쇄돼야 하는데 실제로는 카드가 비스듬히 나오는 문제가
-// 반복돼서 — 원인을 더 파고들기보다, 애초에 회전 합성에 기대지 않는 이
-// 방식이 훨씬 확실하고 검증하기도 쉬움(계산 결과가 눈에 보이는 숫자라서).
-// 이전엔 각도를 균등 간격으로 나눴는데, 원의 성질상 중심에서 먼(바깥쪽) 카드일수록
-// 같은 각도 차이라도 실제 가로 간격(x)은 더 좁아짐(sin 곡선이 바깥으로 갈수록
-// 평평해짐) — 그래서 계속 바깥쪽 카드끼리만 겹치는 문제가 반복됐음. 대신 원하는
-// 가로 간격(x, 120px 등간격)을 먼저 정하고 거기서 각도를 역산(asin)해서, 카드
-// 위치와 무관하게 실제 화면상 가로 간격이 항상 동일하도록 함.
-const ARCH_RADIUS = 700; // px — 전보다 훨씬 키워서 아치를 완만하게(납작하게) 만듦
-const ARCH_CARD_W = 85; // px
-const ARCH_CARD_H = 104; // px, ARCH_CARD_W * 1.22
-const ARCH_PIVOT_TOP = 840; // px — 가장 높은(중앙) 카드도 섹션 상단에서 약 90px
-// 떨어지도록 여유를 크게 잡음(전엔 약 28px이라 헤더 바로 아래라 잘려 보인다는
-// 피드백이 있었음). pt-96(섹션 상단 패딩 384px)은 그대로 둬도 가장 낮은(바깥쪽)
-// 카드가 약 366px로 헤드라인 시작 전에 들어감.
-
-function archCard(src: string, xOffsetPx: number) {
-  const angleDeg = (Math.asin(xOffsetPx / ARCH_RADIUS) * 180) / Math.PI;
-  const rad = (angleDeg * Math.PI) / 180;
-  return {
-    src,
-    x: Math.round(ARCH_RADIUS * Math.sin(rad)),
-    y: Math.round(-ARCH_RADIUS * Math.cos(rad)),
-    rotate: Math.round(angleDeg * 0.22),
-  };
-}
-
-const ARCH_CARDS = [
-  archCard("/hero-photos/hero-1.jpg", -455),
-  archCard("/hero-photos/hero-2.jpg", -325),
-  archCard("/hero-photos/hero-3.jpg", -195),
-  archCard("/hero-photos/hero-4.jpg", -65),
-  archCard("/hero-photos/hero-5.jpg", 65),
-  archCard("/hero-photos/hero-6.jpg", 195),
-  archCard("/hero-photos/hero-7.jpg", 325),
-  archCard("/hero-photos/hero-8.jpg", 455),
+// 히어로 아치에 올릴 실제 사진 8장. 첫 번째(hero-1)가 스크롤 시 아치를
+// 이탈해 아래 "판단 근거" 데모 쪽으로 날아가는 카드로 지정된다(참고 사이트
+// main.js의 cards[0]/data-hero-card와 동일한 역할).
+const ARCH_PHOTOS = [
+  "/hero-photos/hero-1.jpg",
+  "/hero-photos/hero-2.jpg",
+  "/hero-photos/hero-3.jpg",
+  "/hero-photos/hero-4.jpg",
+  "/hero-photos/hero-5.jpg",
+  "/hero-photos/hero-6.jpg",
+  "/hero-photos/hero-7.jpg",
+  "/hero-photos/hero-8.jpg",
 ];
 
 // 디자인 목업(Figma "이런 상황에서 쓰세요" 프레임)에서 카드 5장을 통째로
@@ -93,51 +66,303 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // "결과만이 아닌..." 예시 카드 — 화면에 스크롤되어 들어올 때마다 0%에서
-  // 75%까지 게이지가 채워지고 숫자가 오르며, 다 오르고 나서 "높음" 배지와
-  // 문구가 뒤이어 나타남. 다시 스크롤해서 벗어났다가 들어오면 처음부터 재생.
-  const demoCardRef = useRef<HTMLDivElement | null>(null);
-  const [demoPercent, setDemoPercent] = useState(0);
-  const [demoTextVisible, setDemoTextVisible] = useState(false);
+  const showHero = !analysisResult && !isLoading;
+
+  // ── 히어로 아치 + 스크롤 연출용 DOM 참조 ─────────────────────────────
+  // 매 프레임 style을 직접 건드리는 애니메이션이라 React state로 리렌더를
+  // 유발하지 않고 ref로 DOM을 직접 조작(참고 사이트 main.js와 동일한 접근).
+  const heroSectionRef = useRef<HTMLElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const heroCenterRef = useRef<HTMLDivElement | null>(null);
+  const heroHintRef = useRef<HTMLDivElement | null>(null);
+  const flyCardRef = useRef<HTMLDivElement | null>(null);
+
+  const verifySectionRef = useRef<HTMLElement | null>(null);
+  const verifyHeadRef = useRef<HTMLDivElement | null>(null);
+  const dropZoneRef = useRef<HTMLDivElement | null>(null);
+  const dropImgRef = useRef<HTMLDivElement | null>(null);
+  const resultPanelRef = useRef<HTMLDivElement | null>(null);
+  const gaugeCircleRef = useRef<HTMLDivElement | null>(null);
+  const gaugeNumRef = useRef<HTMLSpanElement | null>(null);
+  const badgeRef = useRef<HTMLSpanElement | null>(null);
+  const descRef = useRef<HTMLParagraphElement | null>(null);
+
+  // 아치 배치·스크롤 연출 전체 — 참고 사이트(imalytix-web-deploy/js/main.js)의
+  // layoutRing()/renderHero()/renderFlight()/renderVerify()를 그대로 이식.
+  // 카드들이 원호(반원) 위에 배치되고, 스크롤하면 원호 전체가 회전하며 열리고,
+  // 그중 한 장(hero-1)이 화면 중앙으로 날아올랐다가 아래 "판단 근거" 데모의
+  // 체크보드 박스에 내려앉고, 결과 패널이 뒤이어 올라오며 게이지가 채워진다.
   useEffect(() => {
-    const el = demoCardRef.current;
-    if (!el) return;
-    const DURATION_MS = 1200;
-    const TARGET = 75;
-    let rafId: number | null = null;
-    let startedAt: number | null = null;
+    if (!showHero) return;
+    const hero = heroSectionRef.current;
+    const verify = verifySectionRef.current;
+    const ring = ringRef.current;
+    const heroCard = cardRefs.current[0];
+    const flyCard = flyCardRef.current;
+    const dropZone = dropZoneRef.current;
+    const dropImg = dropImgRef.current;
+    const resultPanel = resultPanelRef.current;
+    if (!hero || !verify || !ring || !heroCard || !flyCard || !dropZone || !dropImg || !resultPanel) return;
 
-    const animate = (ts: number) => {
-      if (startedAt === null) startedAt = ts;
-      const t = Math.min(1, (ts - startedAt) / DURATION_MS);
-      const eased = 1 - (1 - t) ** 3; // ease-out cubic
-      setDemoPercent(Math.round(eased * TARGET));
-      if (t < 1) {
-        rafId = requestAnimationFrame(animate);
-      } else {
-        setDemoTextVisible(true);
+    const heroCenter = heroCenterRef.current;
+    const heroHint = heroHintRef.current;
+    const verifyHead = verifyHeadRef.current;
+    const gaugeCircle = gaugeCircleRef.current;
+    const gaugeNum = gaugeNumRef.current;
+    const badge = badgeRef.current;
+    const desc = descRef.current;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
+    const norm = (v: number, a: number, b: number) => clamp((v - a) / (b - a), 0, 1);
+    const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+    const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+    /* ── 아치 배치 ── */
+    const ARC_GAP_RATIO = 1.14; // 카드 폭 대비 최소 중심 간격(1.0 = 딱 붙음)
+    let ringRadius = 0;
+    let ringOffsetY = 24;
+
+    function layoutRing() {
+      const cardEls = cardRefs.current;
+      if (!cardEls[0]) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const phone = vw < 768;
+
+      const cardW = cardEls[0].offsetWidth || 120;
+      const cardH = cardEls[0].offsetHeight || cardW * 1.22;
+
+      // 아치 중심을 화면 아래쪽에 두면 반지름을 크게 쓸 수 있어 카드 사이가
+      // 더 벌어진다(아래로 내려간 카드는 베일 그라데이션에 잠기므로 손해 없음).
+      // 폰에서는 반지름이 화면 폭에 묶여 작아지므로 중심을 거의 화면 중앙에 둔다.
+      ringOffsetY = vh * (phone ? 0.02 : 0.28);
+      const centerY = vh / 2 + ringOffsetY;
+      ringRadius = Math.min(centerY - 76 - cardH / 2, vw * (phone ? 0.54 : 0.46), 620);
+
+      // 카드가 겹치지 않을 만큼 호를 벌린다 — 부딪히는 건 호 안쪽 모서리라
+      // 간격 계산도 안쪽 반지름 기준.
+      const innerR = Math.max(60, ringRadius - cardH / 2);
+      const stepNeeded = ((cardW * ARC_GAP_RATIO) * 360) / (2 * Math.PI * innerR);
+      const arcSpan = Math.min(Math.max(240, stepNeeded * (cardEls.length - 1)), 330);
+      const arcStart = 270 - arcSpan / 2; // 언제나 꼭대기를 기준으로 대칭
+
+      const step = arcSpan / (cardEls.length - 1);
+      cardEls.forEach((card, i) => {
+        if (!card) return;
+        const deg = arcStart + step * i;
+        const rad = (deg * Math.PI) / 180;
+        const x = Math.cos(rad) * ringRadius;
+        const y = Math.sin(rad) * ringRadius;
+        const tilt = deg + 90; // 카드가 호를 따라 부채꼴로 기울도록
+        card.dataset.x = String(x);
+        card.dataset.y = String(y);
+        card.dataset.tilt = String(tilt);
+        card.style.transform = `translate(${x}px, ${y}px) rotate(${tilt}deg)`;
+      });
+    }
+
+    /* ── 카드 하나가 아치를 이탈해 결과 데모로 날아가는 애니메이션 ──
+       두 섹션에 걸쳐 있어 절대 scrollY 기준으로 구동하며, 양 끝점을 매번
+       실측해서(measureFlight) 목표 지점이 살아있는 값이 되도록 한다. */
+    const FLY_HOLD = 0.44; // 공중에서 부풀며 머무는 구간의 비중
+    const flight: {
+      s: number;
+      e: number;
+      armed: boolean;
+      from: { x: number; y: number; w: number; h: number } | null;
+      rot0: number;
+      landed: boolean | null;
+    } = { s: 0, e: 0, armed: false, from: null, rot0: 0, landed: null };
+
+    function measureFlight() {
+      const vh = window.innerHeight;
+      flight.s = hero!.offsetTop + (hero!.offsetHeight - vh) * 0.55;
+      flight.e = verify!.offsetTop + (verify!.offsetHeight - vh) * 0.12;
+    }
+
+    function armFlight(spin: number) {
+      const r = heroCard!.getBoundingClientRect();
+      flight.from = {
+        x: r.left + r.width / 2,
+        y: r.top + r.height / 2,
+        w: heroCard!.offsetWidth,
+        h: heroCard!.offsetHeight,
+      };
+      const deg = (parseFloat(heroCard!.dataset.tilt || "0") || 0) + spin;
+      flight.rot0 = (((deg % 360) + 540) % 360) - 180;
+      flight.armed = true;
+    }
+
+    function setLanded(on: boolean) {
+      if (flight.landed === on) return;
+      flight.landed = on;
+      dropImg!.style.opacity = on ? "1" : "0";
+      dropImg!.classList.toggle("is-landed", on);
+      dropZone!.classList.toggle("is-hit", on);
+    }
+
+    function renderFlight(spin: number) {
+      const sy = window.pageYOffset || document.documentElement.scrollTop;
+      const fp = norm(sy, flight.s, flight.e);
+
+      if (fp <= 0) {
+        flight.armed = false;
+        flyCard!.classList.remove("is-active");
+        heroCard!.style.opacity = "";
+        setLanded(false);
+        return 0;
       }
-    };
+      if (fp >= 1) {
+        flyCard!.classList.remove("is-active");
+        heroCard!.style.opacity = "0";
+        setLanded(true);
+        return 1;
+      }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          startedAt = null;
-          setDemoTextVisible(false);
-          setDemoPercent(0);
-          rafId = requestAnimationFrame(animate);
-        } else if (rafId !== null) {
-          cancelAnimationFrame(rafId);
-        }
-      },
-      { threshold: 0.5 },
-    );
-    observer.observe(el);
+      if (!flight.armed) armFlight(spin);
+      heroCard!.style.opacity = "0";
+      setLanded(false);
+      flyCard!.classList.add("is-active");
+
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const f = flight.from!;
+      const tr = dropImg!.getBoundingClientRect(); // 살아있는 값(프레임이 스크롤되며 계속 움직임)
+      const to = { x: tr.left + tr.width / 2, y: tr.top + tr.height / 2, w: tr.width, h: tr.height };
+
+      // 공중 정지 지점 — 양 끝보다 커야 "다가오는" 느낌이 남
+      const holdW = clamp(Math.max(f.w * 2.7, to.w * 1.5), 170, Math.min(vw * 0.72, vh * 0.5));
+      const hold = { x: vw * 0.5, y: vh * 0.47, w: holdW, h: holdW * 1.12 };
+
+      let x: number, y: number, w: number, h: number, t: number;
+      if (fp <= FLY_HOLD) {
+        t = easeOutCubic(fp / FLY_HOLD);
+        x = lerp(f.x, hold.x, t);
+        y = lerp(f.y, hold.y, t);
+        w = lerp(f.w, hold.w, t);
+        h = lerp(f.h, hold.h, t);
+      } else {
+        t = easeInOutCubic((fp - FLY_HOLD) / (1 - FLY_HOLD));
+        x = lerp(hold.x, to.x, t);
+        y = lerp(hold.y, to.y, t);
+        w = lerp(hold.w, to.w, t);
+        h = lerp(hold.h, to.h, t);
+        const arc = Math.sin(t * Math.PI); // 직선이 아니라 살짝 휘어져 들어감
+        x += arc * (to.x < hold.x ? 44 : -44);
+        y -= arc * 28;
+      }
+
+      const swell = reduceMotion ? 0 : Math.sin(fp * Math.PI); // 0→1→0, 공중에 떠있을 때만 기울어짐
+      const rotZ = lerp(flight.rot0, 0, easeOutCubic(clamp(fp / FLY_HOLD, 0, 1)));
+
+      flyCard!.style.width = `${w}px`;
+      flyCard!.style.height = `${h}px`;
+      flyCard!.style.borderRadius = `${clamp(w * 0.07, 12, 26)}px`;
+      flyCard!.style.opacity = String(lerp(0.2, 1, norm(fp, 0, 0.2)));
+      flyCard!.style.transform =
+        `translate3d(${x - w / 2}px, ${y - h / 2}px, 0)` +
+        ` perspective(1000px) rotateX(${13 * swell}deg) rotateY(${-34 * swell}deg) rotate(${rotZ}deg)`;
+
+      return fp;
+    }
+
+    function renderHero() {
+      const rect = hero!.getBoundingClientRect();
+      const total = hero!.offsetHeight - window.innerHeight;
+      const p = clamp(-rect.top / total, 0, 1);
+
+      const spin = easeOutCubic(p) * 240;
+      const drift = lerp(1, 1.18, p);
+      const lift = ringOffsetY + p * -40;
+      ring!.style.transform = `translate(0, ${lift}px) rotate(${spin}deg) scale(${drift})`;
+
+      const fp = renderFlight(spin);
+
+      // 카드가 공중에 떠 있는 동안엔 아치와 히어로 문구가 무대를 비워준다
+      ring!.style.opacity = String((1 - norm(p, 0.82, 1) * 0.85) * (1 - norm(fp, 0.03, 0.38)));
+      const out = norm(fp, 0, 0.24);
+      if (heroCenter) {
+        heroCenter.style.transform = `scale(${1 - out * 0.14}) translateY(${-out * 40}px)`;
+        heroCenter.style.opacity = String(1 - out);
+      }
+      if (heroHint) heroHint.style.opacity = String(1 - norm(fp, 0, 0.2));
+    }
+
+    function renderVerify() {
+      const rect = verify!.getBoundingClientRect();
+      const total = verify!.offsetHeight - window.innerHeight;
+      const p = clamp(-rect.top / total, 0, 1);
+
+      if (verifyHead) {
+        const h = norm(p, 0.02, 0.18);
+        verifyHead.style.opacity = String(h);
+        verifyHead.style.transform = `translateY(${(1 - h) * 26}px)`;
+      }
+
+      // 결과 패널이 아래에서 올라옴
+      const r = norm(p, 0.3, 0.56);
+      const re = easeOutCubic(r);
+      resultPanel!.style.transform = `translateY(${(1 - re) * 105}%)`;
+      resultPanel!.style.opacity = String(norm(p, 0.3, 0.38));
+
+      // 게이지가 채워지며 숫자가 오름 — 다 차면 배지/문구 등장
+      const g = norm(p, 0.42, 0.7);
+      const eg = easeOutCubic(g);
+      const pct = Math.round(75 * eg);
+      if (gaugeCircle) gaugeCircle.style.background = `conic-gradient(#f23e3e ${pct * 3.6}deg, #f2f2f2 0deg)`;
+      if (gaugeNum) gaugeNum.textContent = `${pct}%`;
+      const doneOpacity = String(norm(g, 0.94, 1));
+      if (badge) badge.style.opacity = doneOpacity;
+      if (desc) desc.style.opacity = doneOpacity;
+    }
+
+    let rafId = 0;
+    function onScroll() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        renderHero();
+        renderVerify();
+      });
+    }
+    function handleResize() {
+      layoutRing();
+      measureFlight();
+      flight.armed = false;
+      onScroll();
+    }
+    function handleLoad() {
+      layoutRing();
+      measureFlight();
+      onScroll();
+    }
+    function handleVisibility() {
+      if (!document.hidden) onScroll();
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("load", handleLoad);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    layoutRing();
+    measureFlight();
+    onScroll();
+    // 웹폰트 등으로 섹션 높이가 첫 페인트 이후 바뀔 수 있어, 이미 load가
+    // 끝난 상태로 마운트된 경우(주로 이 경우)에도 한 번 더 재계산.
+    if (document.readyState === "complete") handleLoad();
+
     return () => {
-      observer.disconnect();
-      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("load", handleLoad);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, []);
+  }, [showHero]);
 
   // 익스텐션 데모 영상 — 참고 사이트와 동일하게 화면에 보일 때만 재생하고
   // 벗어나면 멈춤(항상 자동재생하는 것보다 배터리/리소스 부담이 적음).
@@ -204,88 +429,139 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const showHero = !analysisResult && !isLoading;
-
   return (
     <div className="min-h-screen bg-black">
       <AppHeader />
 
       {showHero && (
-        <section id="top" className="relative overflow-hidden border-b border-white/6 bg-black pb-20 pt-44 text-center sm:pt-96">
-          {/* 원호(아치) 배치 — 원 위의 점 배치 공식(rotate(각도) translateY(-반지름)
-              rotate(-각도))을 그대로 씀: 피벗을 기준으로 각 카드가 정확히
-              원 둘레 위에 놓이고, 뒤의 rotate(-각도)가 카드 자체는 다시 수평으로
-              세워줌. left:50%가 섹션 전체 폭이 아니라 안쪽 max-w-3xl 박스
-              기준이라, 화면이 아무리 넓어도 중앙에 모여있음(이전에는 섹션 전체
-              폭 기준이라 와이드 모니터에서 화면 가장자리까지 흩어져 보였음). */}
-          <div className="pointer-events-none absolute inset-0">
-            {/* 모바일에서는 좌표(±510px까지 퍼지는 배치)가 화면 폭보다 훨씬 커서
-                그대로 두면 잘리거나 넘침 — 좌표는 그대로 두고 컨테이너 전체를
-                origin-top으로 축소해서 같은 비율의 배치를 화면 폭에 맞춤. */}
-            <div className="relative mx-auto h-full max-w-3xl origin-top scale-[0.32] sm:scale-100">
-              {ARCH_CARDS.map((c) => (
-                <button
-                  key={c.src}
-                  type="button"
-                  onClick={() => handleSampleClick(c.src)}
-                  aria-label="샘플 이미지로 바로 검증하기"
-                  className="pointer-events-auto absolute overflow-hidden rounded-2xl opacity-40 shadow-lg transition-[opacity,transform] duration-300 hover:scale-105 hover:opacity-85"
-                  style={{
-                    left: "50%",
-                    top: `${ARCH_PIVOT_TOP}px`,
-                    width: `${ARCH_CARD_W}px`,
-                    height: `${ARCH_CARD_H}px`,
-                    // (-50%, -50%)로 먼저 (left, top) 지점에 카드 중심을 맞춘 뒤,
-                    // 미리 계산해둔 x/y만큼 추가로 옮김 — 회전을 전혀 안 쓰므로
-                    // 카드는 항상 정확히 반듯한(회전 없는) 상태로 남는다.
-                    transform: `translate(calc(-50% + ${c.x}px), calc(-50% + ${c.y}px)) rotate(${c.rotate}deg)`,
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
-                  <img src={c.src} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
+        <>
+          {/* ─────────── PART 1 · 히어로(아치 카드 + 업로드) ─────────── */}
+          <section id="top" ref={heroSectionRef} className="hero-pin">
+            <div className="hero-pin__sticky">
+              <div ref={ringRef} className="hero-ring" aria-hidden="true">
+                {ARCH_PHOTOS.map((src, i) => (
+                  <button
+                    key={src}
+                    type="button"
+                    ref={(el) => {
+                      cardRefs.current[i] = el;
+                    }}
+                    onClick={() => handleSampleClick(src)}
+                    aria-label="샘플 이미지로 바로 검증하기"
+                    className="ring-card"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- public/ 정적 데모 자산, next/image 이점 없음 */}
+                    <img src={src} alt="" />
+                  </button>
+                ))}
+              </div>
 
-          <div className="relative mx-auto max-w-2xl px-6">
-            <h1 className="animate-fade-in-up text-4xl font-bold tracking-tight text-[#f4f4f6] lg:text-5xl">
-              더 확실한 판단을 위한 이미지 검증
-            </h1>
-            <p className="animate-fade-in-up mt-4 text-[15px] leading-relaxed text-[#9a9aa4] [animation-delay:120ms]">
-              imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 포렌식 분석으로 검증하고,
-              <br className="hidden sm:block" />
-              판단 근거까지 제공하는 이미지 검증 서비스입니다.
-            </p>
+              <div className="hero-veil" aria-hidden="true" />
 
-            <div className="animate-fade-in-up mt-10 flex flex-col items-center gap-4 [animation-delay:240ms]">
-              <ImageUploader
-                previewUrl={previewUrl}
-                fileName={selectedFile?.name ?? null}
-                onFileSelected={(file, dataUrl) => {
-                  setSelectedFile(file);
-                  setPreviewUrl(dataUrl);
-                  setErrorMessage(null);
-                }}
-                onError={(message) => setErrorMessage(message)}
-              />
+              <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center">
+                <h1 className="text-4xl font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] lg:text-5xl">
+                  더 확실한 판단을 위한 이미지 검증
+                </h1>
+                <p className="mt-4 text-[15px] leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)]">
+                  imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 포렌식 분석으로 검증하고,
+                  <br className="hidden sm:block" />
+                  판단 근거까지 제공하는 이미지 검증 서비스입니다.
+                </p>
 
-              {errorMessage && (
-                <div className="w-full max-w-sm rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
-                  {errorMessage}
+                <div className="mt-10 flex flex-col items-center gap-4">
+                  <ImageUploader
+                    previewUrl={previewUrl}
+                    fileName={selectedFile?.name ?? null}
+                    onFileSelected={(file, dataUrl) => {
+                      setSelectedFile(file);
+                      setPreviewUrl(dataUrl);
+                      setErrorMessage(null);
+                    }}
+                    onError={(message) => setErrorMessage(message)}
+                  />
+
+                  {errorMessage && (
+                    <div className="w-full max-w-sm rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-200">
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleAnalyze()}
+                    className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
+                  >
+                    이미지 검증하기
+                  </button>
                 </div>
-              )}
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleAnalyze()}
-                className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
-              >
-                이미지 검증하기
-              </button>
+              <div ref={heroHintRef} className="hero-hint">
+                <span>Scroll</span>
+                <ChevronDown className="h-3.5 w-3.5" />
+              </div>
             </div>
+          </section>
+
+          {/* 아치를 이탈해 날아가는 카드의 분신(clone) — position:fixed */}
+          <div ref={flyCardRef} className="fly-card" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- 스크롤 연출용 고정 이미지, next/image 이점 없음 */}
+            <img src={ARCH_PHOTOS[0]} alt="" />
           </div>
-        </section>
+
+          {/* ─────────── PART 2 · 판단 근거 데모(결과 패널이 스크롤에 맞춰 등장) ─────────── */}
+          <section ref={verifySectionRef} className="verify-pin">
+            <div className="verify-pin__sticky">
+              <div ref={verifyHeadRef} className="max-w-lg px-6">
+                <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">결과만이 아닌, 판단 근거까지 제공합니다.</h2>
+                <p className="mt-3 text-sm leading-relaxed text-[#9a9aa4]">
+                  AI 생성 가능성과 다양한 분석 결과를 함께 확인하여, 결과를 더 쉽게 이해하고 판단할 수 있습니다.
+                </p>
+              </div>
+
+              <div className="verify-stage">
+                <div ref={dropZoneRef} className="verify-drop">
+                  <div ref={dropImgRef} className="drop-img">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- 스크롤 연출용 고정 이미지, next/image 이점 없음 */}
+                    <img src={ARCH_PHOTOS[0]} alt="" />
+                  </div>
+                </div>
+
+                <div className="verify-result">
+                  <div ref={resultPanelRef} className="w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <span className="flex items-center gap-1 text-[12px] font-bold">
+                        <span className="h-2 w-2 rounded-full bg-[#52bdff]" /> imalytix
+                      </span>
+                      <X className="h-3.5 w-3.5 text-[#bbb]" />
+                    </div>
+                    <div className="border-t border-black/6 px-4 py-2.5 text-[11px] text-[#8a8a8a]">이 이미지를 분석했습니다 · 방금 전</div>
+                    <div className="flex flex-col items-center gap-2 px-4 py-5">
+                      <div
+                        ref={gaugeCircleRef}
+                        className="relative flex h-16 w-16 items-center justify-center rounded-full"
+                        style={{ background: "conic-gradient(#f23e3e 0deg, #f2f2f2 0deg)" }}
+                      >
+                        <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-white">
+                          <span ref={gaugeNumRef} className="text-[15px] font-extrabold">
+                            0%
+                          </span>
+                        </div>
+                      </div>
+                      <span ref={badgeRef} className="rounded-full bg-[#f23e3e] px-2.5 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity duration-300">
+                        높음
+                      </span>
+                      <p ref={descRef} className="mt-1 text-[11px] text-[#7a7a7a] opacity-0 transition-opacity duration-300">
+                        AI 생성 이미지일 가능성이 높습니다.
+                      </p>
+                    </div>
+                    <div className="border-t border-black/6 px-4 py-2.5 text-[11px] font-bold">핵심 결과</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
       )}
 
       <main className="mx-auto w-full max-w-5xl px-6 py-10">
@@ -303,51 +579,8 @@ export default function Home() {
 
         {showHero && (
           <>
-            {/* 판단 근거 제공 — 실제 결과 화면을 미리 보여주는 예시(장식용, 실제 데이터 아님) */}
-            <section className="mt-24 text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">결과만이 아닌, 판단 근거까지 제공합니다.</h2>
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#9a9aa4]">
-                AI 생성 가능성과 다양한 분석 결과를 함께 확인하여, 결과를 더 쉽게 이해하고 판단할 수 있습니다.
-              </p>
-
-              <div className="mx-auto mt-10 flex max-w-xl flex-col gap-4 rounded-3xl border border-white/8 bg-white/[0.03] p-6 sm:flex-row">
-                <div className="flex-1 overflow-hidden rounded-2xl" style={{ aspectRatio: "1 / 1" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- 장식용 예시 이미지, next/image 이점 없음 */}
-                  <img src="/hero-photos/hero-1.jpg" alt="" className="h-full w-full object-cover" />
-                </div>
-                <div ref={demoCardRef} className="flex-1 overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]">
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="flex items-center gap-1 text-[12px] font-bold">
-                      <span className="h-2 w-2 rounded-full bg-[#52bdff]" /> imalytix
-                    </span>
-                    <X className="h-3.5 w-3.5 text-[#bbb]" />
-                  </div>
-                  <div className="border-t border-black/6 px-4 py-2.5 text-[11px] text-[#8a8a8a]">이 이미지를 분석했습니다. · 방금 전</div>
-                  <div className="flex flex-col items-center gap-2 px-4 py-5">
-                    <div
-                      className="relative flex h-16 w-16 items-center justify-center rounded-full"
-                      style={{ background: `conic-gradient(#f23e3e ${demoPercent * 3.6}deg, #f2f2f2 0deg)` }}
-                    >
-                      <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-white">
-                        <span className="text-[15px] font-extrabold">{demoPercent}%</span>
-                      </div>
-                    </div>
-                    <span
-                      className={`rounded-full bg-[#f23e3e] px-2.5 py-0.5 text-[10px] font-bold text-white transition-opacity duration-500 ${demoTextVisible ? "opacity-100" : "opacity-0"}`}
-                    >
-                      높음
-                    </span>
-                    <p className={`mt-1 text-[11px] text-[#7a7a7a] transition-opacity duration-500 ${demoTextVisible ? "opacity-100" : "opacity-0"}`}>
-                      AI 생성 이미지일 가능성이 높습니다.
-                    </p>
-                  </div>
-                  <div className="border-t border-black/6 px-4 py-2.5 text-[11px] font-bold">핵심 결과</div>
-                </div>
-              </div>
-            </section>
-
             {/* 이런 상황에서 쓰세요 — 좌측으로 계속 흘러가는 카드 행 */}
-            <section className="mt-24 text-center">
+            <section className="mt-10 text-center">
               <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">이미지를 믿기 어려운 AI 시대</h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#9a9aa4]">
                 이제 실제와 구분하기 어려운 이미지를 만들어냅니다.
