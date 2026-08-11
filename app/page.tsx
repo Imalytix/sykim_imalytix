@@ -509,11 +509,11 @@ export default function Home() {
                   더 확실한 판단을 위한 이미지 검증
                 </h1>
                 <p className="mt-4 break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-2xl">
-                  imalytix는 AI 생성 여부와 이미지 조작 가능성을{" "}
+                  Imalytix는 AI 생성 여부와 이미지 조작 가능성을{" "}
                   <br className="sm:hidden" />
-                  다양한 포렌식 분석으로 검증하고,{" "}
+                  다양한 분석 기법으로 검증하고,{" "}
                   <br className="hidden sm:block" />
-                  판단 근거까지 제공하는 이미지 검증 서비스입니다.
+                  결과와 판단 근거를 제공하는 이미지 검증 서비스입니다.
                 </p>
 
                 <div className="mt-10 flex flex-col items-center gap-4">
