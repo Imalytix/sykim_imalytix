@@ -117,6 +117,7 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -238,6 +239,7 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -311,12 +313,21 @@ body {
     align-items: center;
     max-width: 340px;
   }
-  .verify-drop,
+  /* 모바일은 세로로 쌓이므로(flex-direction: column) 두 박스가 서로 높이를
+     맞출 필요가 없음 — verify-drop은 정사각형으로 고정하고, verify-result는
+     카드 내용(로고 줄 + 썸네일 줄 + 게이지)이 실제로 필요로 하는 만큼
+     자유롭게 높이가 늘어나게 둬서 overflow:hidden에 위쪽 줄이 잘리지 않게 함. */
+  .verify-drop {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: min(280px, 30vh);
+    aspect-ratio: 1 / 1;
+  }
   .verify-result {
     flex: 0 0 auto;
     width: 100%;
-    max-width: min(300px, 30vh);
-    aspect-ratio: 1 / 1.08;
+    max-width: min(320px, 92vw);
+    aspect-ratio: auto;
   }
 }
 

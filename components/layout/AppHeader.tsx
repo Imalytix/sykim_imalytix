@@ -49,7 +49,7 @@ export default function AppHeader() {
 
   return (
     <header className="h-16 shrink-0 bg-black">
-      <div className="mx-auto grid h-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-6">
+      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6 sm:grid sm:grid-cols-[1fr_auto_1fr]">
         {/* 로고/Home은 next/link가 아니라 일반 <a> — 이미 "/"에 있을 때(분석 결과
             화면 등) next/link는 같은 라우트로는 아무 것도 안 하고 넘어가서
             컴포넌트 상태(분석 결과 등)가 안 지워집니다. 진짜 새로고침으로
