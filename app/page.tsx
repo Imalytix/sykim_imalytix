@@ -509,9 +509,9 @@ export default function Home() {
                   더 확실한 판단을 위한 이미지 검증
                 </h1>
                 <p className="mt-4 break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-2xl">
-                  imalytix는 AI 생성 여부와 이미지 조작 가능성을
+                  imalytix는 AI 생성 여부와 이미지 조작 가능성을{" "}
                   <br className="sm:hidden" />
-                  다양한 포렌식 분석으로 검증하고,
+                  다양한 포렌식 분석으로 검증하고,{" "}
                   <br className="hidden sm:block" />
                   판단 근거까지 제공하는 이미지 검증 서비스입니다.
                 </p>
@@ -563,7 +563,7 @@ export default function Home() {
               <div ref={verifyHeadRef} className="max-w-lg px-6 sm:max-w-2xl">
                 <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">결과만이 아닌, 판단 근거까지 제공합니다.</h2>
                 <p className="mt-3 break-keep text-sm leading-relaxed text-[#9a9aa4] sm:text-2xl">
-                  AI 생성 가능성과 다양한 분석 결과를 함께 확인하여,
+                  AI 생성 가능성과 다양한 분석 결과를 함께 확인하여,{" "}
                   <br className="hidden sm:block" />
                   결과를 더 쉽게 이해하고 판단할 수 있습니다.
                 </p>
@@ -639,9 +639,9 @@ export default function Home() {
           <>
             {/* 이런 상황에서 쓰세요 — 좌측으로 계속 흘러가는 카드 행 */}
             <section className="mt-10 text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">이미지를 믿기 어려운 AI 시대</h2>
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#9a9aa4]">
-                이제 실제와 구분하기 어려운 이미지를 만들어냅니다.
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">이미지를 믿기 어려운 AI 시대</h2>
+              <p className="mx-auto mt-3 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
+                이제 실제와 구분하기 어려운 이미지를 만들어냅니다.{" "}
                 <br className="hidden sm:block" />
                 중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.
               </p>
@@ -660,7 +660,7 @@ export default function Home() {
             <section id="tech" className="mt-24 rounded-3xl border border-white/8 bg-white/[0.02] px-6 py-16 text-center">
               <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">국내외 AI 전문가의 자문을 바탕으로 설계했습니다.</h2>
               <p className="mx-auto mt-3 max-w-xl break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
-                탐지 모델 구조와 검증 방식은 KAIST 연구실, KT AX 전략팀과
+                탐지 모델 구조와 검증 방식은 KAIST 연구실, KT AX 전략팀과{" "}
                 <br className="hidden sm:block" />
                 해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.
               </p>
@@ -682,8 +682,8 @@ export default function Home() {
 
             {/* 익스텐션 홍보 — 참고 사이트(PART 5 · EXTENSION VIDEO)와 동일한 구성 */}
             <section className="mt-24 text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">브라우저 익스텐션으로, 보던 화면 그대로</h2>
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#9a9aa4]">
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">브라우저 익스텐션으로, 보던 화면 그대로</h2>
+              <p className="mx-auto mt-3 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
                 설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든 우클릭으로 바로 검증할 수 있습니다.
               </p>
               <div className="mx-auto mt-10 max-w-[860px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b21] shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
