@@ -67,15 +67,7 @@ export default function AnalysisStepsLoader({ active, previewUrl }: AnalysisStep
         >
           {previewUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- local blob/data URL preview, next/image adds no value here
-            <img
-              src={previewUrl}
-              alt="분석 중인 이미지"
-              className="h-full w-full object-cover"
-              style={{
-                maskImage: "radial-gradient(circle, black 55%, transparent 78%)",
-                WebkitMaskImage: "radial-gradient(circle, black 55%, transparent 78%)",
-              }}
-            />
+            <img src={previewUrl} alt="분석 중인 이미지" className="h-full w-full object-cover" />
           )}
         </div>
 

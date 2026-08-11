@@ -417,6 +417,26 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
+  // 기술 신뢰도 카드 3장 — 스크롤로 화면에 들어오면 한 번에 페이드인(디자인
+  // 피드백: 개별 등장이 아니라 3개 박스 동시 등장).
+  const techGridRef = useRef<HTMLDivElement | null>(null);
+  const [techVisible, setTechVisible] = useState(false);
+  useEffect(() => {
+    const el = techGridRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setTechVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleAnalyze = async (fileOverride?: File) => {
     const file = fileOverride ?? selectedFile;
     if (!file) {
@@ -455,16 +475,6 @@ export default function Home() {
     }
   };
 
-  const handleReset = () => {
-    setAnalysisResult(null);
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    setErrorMessage(null);
-    // 결과 화면은 히어로 업로드 영역보다 페이지 아래쪽에 있으므로, 리셋 후
-    // 다시 나타나는 히어로(업로드 박스)가 보이도록 맨 위로 스크롤합니다.
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   return (
     <div className="min-h-screen bg-black">
       <AppHeader />
@@ -494,12 +504,14 @@ export default function Home() {
 
               <div className="hero-veil" aria-hidden="true" />
 
-              <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center">
-                <h1 className="text-4xl font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] lg:text-5xl">
+              <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center sm:max-w-4xl">
+                <h1 className="text-4xl font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-5xl">
                   더 확실한 판단을 위한 이미지 검증
                 </h1>
-                <p className="mt-4 text-[15px] leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)]">
-                  imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 포렌식 분석으로 검증하고,
+                <p className="mt-4 break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-2xl">
+                  imalytix는 AI 생성 여부와 이미지 조작 가능성을
+                  <br className="sm:hidden" />
+                  다양한 포렌식 분석으로 검증하고,
                   <br className="hidden sm:block" />
                   판단 근거까지 제공하는 이미지 검증 서비스입니다.
                 </p>
@@ -525,7 +537,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => handleAnalyze()}
-                    className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
+                    className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)]"
                   >
                     이미지 검증하기
                   </button>
@@ -548,10 +560,12 @@ export default function Home() {
           {/* ─────────── PART 2 · 판단 근거 데모(결과 패널이 스크롤에 맞춰 등장) ─────────── */}
           <section ref={verifySectionRef} className="verify-pin">
             <div className="verify-pin__sticky">
-              <div ref={verifyHeadRef} className="max-w-lg px-6">
-                <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">결과만이 아닌, 판단 근거까지 제공합니다.</h2>
-                <p className="mt-3 text-sm leading-relaxed text-[#9a9aa4]">
-                  AI 생성 가능성과 다양한 분석 결과를 함께 확인하여, 결과를 더 쉽게 이해하고 판단할 수 있습니다.
+              <div ref={verifyHeadRef} className="max-w-lg px-6 sm:max-w-2xl">
+                <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">결과만이 아닌, 판단 근거까지 제공합니다.</h2>
+                <p className="mt-3 break-keep text-sm leading-relaxed text-[#9a9aa4] sm:text-2xl">
+                  AI 생성 가능성과 다양한 분석 결과를 함께 확인하여,
+                  <br className="hidden sm:block" />
+                  결과를 더 쉽게 이해하고 판단할 수 있습니다.
                 </p>
               </div>
 
@@ -571,23 +585,31 @@ export default function Home() {
                       </span>
                       <X className="h-3.5 w-3.5 text-[#bbb]" />
                     </div>
-                    <div className="border-t border-black/6 px-4 py-2.5 text-[11px] text-[#8a8a8a]">이 이미지를 분석했습니다 · 방금 전</div>
-                    <div className="flex flex-col items-center gap-2 px-4 py-5">
+                    <div className="flex items-center gap-2.5 border-t border-black/6 px-4 py-2.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- 스크롤 연출용 고정 썸네일, next/image 이점 없음 */}
+                      <img src={ARCH_PHOTOS[0]} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">이 이미지를 분석했습니다.</div>
+                        <div className="text-[11px] text-[#8a8a8a]">방금 전</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center gap-3 px-4 py-6">
                       <div
                         ref={gaugeCircleRef}
-                        className="relative flex h-16 w-16 items-center justify-center rounded-full"
+                        className="relative flex h-24 w-24 items-center justify-center rounded-full"
                         style={{ background: "conic-gradient(#f23e3e 0deg, #f2f2f2 0deg)" }}
                       >
-                        <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-white">
-                          <span ref={gaugeNumRef} className="text-[15px] font-extrabold">
+                        <div className="absolute inset-[7px] flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-center">
+                          <span className="text-[9px] font-semibold leading-none text-[#9a9aa4]">AI 생성 가능성</span>
+                          <span ref={gaugeNumRef} className="text-xl font-extrabold leading-none">
                             0%
                           </span>
                         </div>
                       </div>
-                      <span ref={badgeRef} className="rounded-full bg-[#f23e3e] px-2.5 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity duration-300">
+                      <span ref={badgeRef} className="rounded-full bg-[#f23e3e] px-3 py-1 text-[11px] font-bold text-white opacity-0 transition-opacity duration-300">
                         높음
                       </span>
-                      <p ref={descRef} className="mt-1 text-[11px] text-[#7a7a7a] opacity-0 transition-opacity duration-300">
+                      <p ref={descRef} className="mt-0.5 text-[12px] text-[#7a7a7a] opacity-0 transition-opacity duration-300">
                         AI 생성 이미지일 가능성이 높습니다.
                       </p>
                     </div>
@@ -608,7 +630,6 @@ export default function Home() {
             analysisResult={analysisResult}
             previewUrl={previewUrl}
             errorMessage={errorMessage}
-            onReset={handleReset}
             returnPath={`/result/${analysisResult.request_id}`}
           />
         )}
@@ -636,13 +657,18 @@ export default function Home() {
 
             {/* 기술 신뢰도 */}
             <section id="tech" className="mt-24 rounded-3xl border border-white/8 bg-white/[0.02] px-6 py-16 text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-3xl">국내외 AI 전문가의 자문을 바탕으로 설계했습니다</h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#9a9aa4]">
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">국내외 AI 전문가의 자문을 바탕으로 설계했습니다.</h2>
+              <p className="mx-auto mt-3 max-w-xl break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
                 탐지 모델 구조와 검증 방식은 KAIST 연구실, KT AX 전략팀과
                 <br className="hidden sm:block" />
                 해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.
               </p>
-              <div className="mx-auto mt-10 grid max-w-3xl gap-5 text-left sm:grid-cols-3">
+              <div
+                ref={techGridRef}
+                className={`mx-auto mt-10 grid max-w-4xl gap-5 text-left transition-all duration-700 ease-out sm:grid-cols-3 ${
+                  techVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+                }`}
+              >
                 {TECH.map((t) => (
                   <div key={t.title} className="rounded-2xl border border-white/9 bg-white/[0.04] p-7 transition hover:border-[#52bdff]/40">
                     <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#52bdff]/15 text-[#52bdff]">{t.icon}</div>
@@ -673,7 +699,7 @@ export default function Home() {
               </div>
               <a
                 href="#top"
-                className="mt-8 inline-block rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
+                className="mt-8 hidden rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)] sm:inline-block"
               >
                 <span className="cta-sheen">무료로 시작하기</span>
               </a>

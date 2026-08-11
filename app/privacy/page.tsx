@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 // 리다이렉트하면 반려 사유가 됩니다) 인증 없이 정적으로 렌더링되는 페이지로
 // 둡니다 — proxy.ts는 세션 갱신만 하고 게이팅은 하지 않으므로 그대로 공개.
 const EFFECTIVE_DATE = "2026년 8월 6일";
-const CONTACT_EMAIL = "westsea314@gmail.com";
+const CONTACT_EMAIL = "imalytix@gmail.com";
 const SERVICE_ORIGIN = "https://sykimimalytix.vercel.app";
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {

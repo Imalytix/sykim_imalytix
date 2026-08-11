@@ -91,15 +91,13 @@ interface AnalysisResultViewProps {
   analysisResult: AnalysisResult;
   previewUrl: string | null;
   errorMessage?: string | null;
-  /** Live analyze flow only — omit to hide the "새 이미지 분석" reset button. */
-  onReset?: () => void;
   /** History detail page only — omit to hide the "목록으로" back link. */
   backHref?: string;
   /** Where the login redirect lands the browser back on — see handleDetailClick. */
   returnPath: string;
 }
 
-export default function AnalysisResultView({ analysisResult, previewUrl, errorMessage, onReset, backHref, returnPath }: AnalysisResultViewProps) {
+export default function AnalysisResultView({ analysisResult, previewUrl, errorMessage, backHref, returnPath }: AnalysisResultViewProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [loginPending, setLoginPending] = useState(false);
@@ -176,8 +174,6 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
     // 성공하면 브라우저가 완전히 떠나므로 이 아래는 실행되지 않음 — OAuth 왕복 후
     // returnPath로 돌아와 이 결과가 그대로 재구성됨(props 주석 참고).
   };
-
-  const resetHref = onReset ? undefined : "/";
 
   return (
     <>
@@ -287,32 +283,14 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
 
                   <RecommendationPanel recommendedAction={analysisResult.recommended_action} />
 
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={handleDetailClick}
-                      disabled={loginPending}
-                      className="flex-1 rounded-xl border border-[#1a1a1a]/15 bg-white py-3 text-sm font-bold text-[#1a1a1a] transition hover:bg-black/5 disabled:opacity-60"
-                    >
-                      {loginPending ? "이동 중…" : "자세한 분석 보기"}
-                    </button>
-                    {onReset ? (
-                      <button
-                        type="button"
-                        onClick={onReset}
-                        className="flex-1 rounded-xl bg-[#52bdff] py-3 text-sm font-bold text-white transition hover:opacity-90"
-                      >
-                        다른 이미지 확인하기
-                      </button>
-                    ) : (
-                      <Link
-                        href={resetHref ?? "/"}
-                        className="flex-1 rounded-xl bg-[#52bdff] py-3 text-center text-sm font-bold text-white transition hover:opacity-90"
-                      >
-                        다른 이미지 확인하기
-                      </Link>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDetailClick}
+                    disabled={loginPending}
+                    className="w-full rounded-xl border border-[#1a1a1a]/15 bg-white py-3 text-sm font-bold text-[#1a1a1a] transition hover:bg-black/5 disabled:opacity-60"
+                  >
+                    {loginPending ? "이동 중…" : "자세한 분석 보기"}
+                  </button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -384,16 +362,6 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                   </AccordionRow>
 
                   <p className="text-center text-xs leading-5 text-[#8a8a8a]">Imalytix의 분석은 판단을 돕기 위한 참고 정보이며, 정확하지 않을 수 있습니다.</p>
-
-                  {onReset ? (
-                    <button type="button" onClick={onReset} className="rounded-xl bg-[#52bdff] py-3 text-sm font-bold text-white transition hover:opacity-90">
-                      다른 이미지 확인하기
-                    </button>
-                  ) : (
-                    <Link href="/" className="rounded-xl bg-[#52bdff] py-3 text-center text-sm font-bold text-white transition hover:opacity-90">
-                      다른 이미지 확인하기
-                    </Link>
-                  )}
                 </div>
               )}
             </div>

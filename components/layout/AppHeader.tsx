@@ -49,7 +49,7 @@ export default function AppHeader() {
 
   return (
     <header className="h-16 shrink-0 bg-black">
-      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto grid h-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-6">
         {/* 로고/Home은 next/link가 아니라 일반 <a> — 이미 "/"에 있을 때(분석 결과
             화면 등) next/link는 같은 라우트로는 아무 것도 안 하고 넘어가서
             컴포넌트 상태(분석 결과 등)가 안 지워집니다. 진짜 새로고침으로
@@ -60,7 +60,9 @@ export default function AppHeader() {
           imalytix
         </a>
 
-        <nav className="hidden items-center gap-8 sm:flex">
+        {/* 로그인/로그아웃 상태에 따라 오른쪽 영역 너비가 달라져도(justify-between이면
+            중앙 네비가 흔들림) 항상 헤더 정중앙에 고정되도록 grid 가운데 칸에 배치 */}
+        <nav className="hidden items-center justify-self-center gap-8 sm:flex">
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- 의도적으로 풀 리로드 (위 주석 참고) */}
           <a href="/" className="text-sm font-bold text-white transition-opacity hover:opacity-80">
             Home
@@ -73,7 +75,7 @@ export default function AppHeader() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-self-end gap-3">
           {user ? (
             <button type="button" onClick={handleSignOut} className="text-sm font-medium text-white transition-opacity hover:opacity-80">
               Logout
@@ -94,9 +96,10 @@ export default function AppHeader() {
               내 분석 이력
             </Link>
           )}
-          {/* Chrome 웹스토어 등록 전까지는 실제 다운로드 링크가 없음 — 배포되면 그 URL로 교체 필요 */}
           <a
-            href="#"
+            href="https://chromewebstore.google.com/detail/imalytix-%EC%9D%B4%EB%AF%B8%EC%A7%80-%ED%83%90%EC%83%89/lkcgfkikbdaiiajjdhmbllnifmebacbn"
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-lg bg-[#52bdff] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
           >
             Download
