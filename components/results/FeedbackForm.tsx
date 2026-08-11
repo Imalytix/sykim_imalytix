@@ -50,9 +50,10 @@ export default function FeedbackForm({ requestId }: FeedbackFormProps) {
           <br />
           서비스를 다운받아 이미지를 우클릭 한 번으로 검증해보세요
         </h2>
-        {/* Chrome 웹스토어 등록 전까지는 실제 다운로드 링크가 없음 — 배포되면 그 URL로 교체 필요 */}
         <a
-          href="#"
+          href="https://chromewebstore.google.com/detail/imalytix-%EC%9D%B4%EB%AF%B8%EC%A7%80-%ED%83%90%EC%83%89/lkcgfkikbdaiiajjdhmbllnifmebacbn"
+          target="_blank"
+          rel="noopener noreferrer"
           className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold text-white shadow-[0_10px_30px_rgba(82,189,255,0.35)] transition hover:-translate-y-0.5"
         >
           다운로드
