@@ -580,8 +580,9 @@ export default function Home() {
                 <div className="verify-result">
                   <div ref={resultPanelRef} className="w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
                     <div className="flex items-center justify-between px-4 py-2.5">
-                      <span className="flex items-center gap-1 text-[12px] font-bold">
-                        <span className="h-2 w-2 rounded-full bg-[#52bdff]" /> imalytix
+                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold tracking-tight">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 카드 안 고정 크기 워드마크, next/image 이점 없음 */}
+                        <img src="/imalytix-icon.png" alt="" className="h-4 w-auto" /> imalytix
                       </span>
                       <X className="h-3.5 w-3.5 text-[#bbb]" />
                     </div>

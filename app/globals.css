@@ -259,24 +259,13 @@ body {
 .verify-result {
   flex: 1 1 0;
   max-width: 340px;
-  aspect-ratio: 1 / 0.92;
+  aspect-ratio: 1 / 1.08;
   border-radius: 20px;
   position: relative;
   overflow: hidden;
 }
 .verify-drop {
-  background:
-    linear-gradient(45deg, #232328 25%, transparent 25%),
-    linear-gradient(-45deg, #232328 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #232328 75%),
-    linear-gradient(-45deg, transparent 75%, #232328 75%);
-  background-size: 28px 28px;
-  background-position:
-    0 0,
-    0 14px,
-    14px -14px,
-    -14px 0px;
-  background-color: #141416;
+  background-color: var(--background);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
@@ -326,8 +315,8 @@ body {
   .verify-result {
     flex: 0 0 auto;
     width: 100%;
-    max-width: min(300px, 34vh);
-    aspect-ratio: 1 / 0.85;
+    max-width: min(300px, 30vh);
+    aspect-ratio: 1 / 1.08;
   }
 }
 
