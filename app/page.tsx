@@ -682,7 +682,11 @@ export default function Home() {
 
             {/* 익스텐션 홍보 — 참고 사이트(PART 5 · EXTENSION VIDEO)와 동일한 구성 */}
             <section className="mt-24 text-center">
-              <h2 className="break-keep text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">브라우저 익스텐션으로, 보던 화면 그대로</h2>
+              <h2 className="break-keep text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">
+                브라우저 익스텐션으로,{" "}
+                <br className="sm:hidden" />
+                보던 화면 그대로
+              </h2>
               <p className="mx-auto mt-3 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
                 설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든 우클릭으로 바로 검증할 수 있습니다.
               </p>
