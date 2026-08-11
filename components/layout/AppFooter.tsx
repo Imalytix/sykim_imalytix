@@ -17,7 +17,9 @@ export default function AppFooter() {
             <div className="mt-1 text-sm text-[#9a9aa4]">imalytix@gmail.com</div>
           </div>
           <p className="max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:text-right">
-            Imalytix는 확률을 기반으로 결과를 제공합니다. 탐지 결과가 완벽하지 않을 수 있으니, 최종 판단은 신중히 내려 주시기 바랍니다.
+            Imalytix는 확률을 기반으로 결과를 제공합니다. 탐지 결과가 완벽하지 않을 수 있
+            <br className="hidden sm:block" />
+            으니, 최종 판단은 신중히 내려 주시기 바랍니다.
           </p>
         </div>
 
