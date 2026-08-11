@@ -287,7 +287,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                     type="button"
                     onClick={handleDetailClick}
                     disabled={loginPending}
-                    className="w-full rounded-xl border border-[#1a1a1a]/15 bg-white py-3 text-sm font-bold text-[#1a1a1a] transition hover:bg-black/5 disabled:opacity-60"
+                    className="w-full rounded-xl bg-[#52bdff] py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60"
                   >
                     {loginPending ? "이동 중…" : "자세한 분석 보기"}
                   </button>
