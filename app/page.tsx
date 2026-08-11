@@ -614,7 +614,6 @@ export default function Home() {
                         AI 생성 이미지일 가능성이 높습니다.
                       </p>
                     </div>
-                    <div className="border-t border-black/6 px-4 py-2.5 text-[11px] font-bold">핵심 결과</div>
                   </div>
                 </div>
               </div>
@@ -688,7 +687,9 @@ export default function Home() {
                 보던 화면 그대로
               </h2>
               <p className="mx-auto mt-3 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
-                설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든 우클릭으로 바로 검증할 수 있습니다.
+                설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든{" "}
+                <br className="sm:hidden" />
+                우클릭으로 바로 검증할 수 있습니다.
               </p>
               <div className="mx-auto mt-10 max-w-[860px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b21] shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
                 <video
