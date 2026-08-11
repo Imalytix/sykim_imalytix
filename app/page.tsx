@@ -614,6 +614,7 @@ export default function Home() {
                         AI 생성 이미지일 가능성이 높습니다.
                       </p>
                     </div>
+                    <div className="border-t border-black/6 px-4 py-2.5" />
                   </div>
                 </div>
               </div>
