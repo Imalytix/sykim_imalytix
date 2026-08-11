@@ -578,7 +578,7 @@ export default function Home() {
                 </div>
 
                 <div className="verify-result">
-                  <div ref={resultPanelRef} className="w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
+                  <div ref={resultPanelRef} className="h-full w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
                     <div className="flex items-center justify-between px-4 py-2.5">
                       <span className="flex items-center gap-1.5 text-[13px] font-extrabold tracking-tight">
                         {/* eslint-disable-next-line @next/next/no-img-element -- 카드 안 고정 크기 워드마크, next/image 이점 없음 */}

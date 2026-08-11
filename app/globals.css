@@ -252,7 +252,7 @@ body {
 .verify-stage {
   display: flex;
   gap: clamp(18px, 3vw, 40px);
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   width: 100%;
   max-width: 720px;
@@ -305,7 +305,7 @@ body {
 }
 .verify-result {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
 }
 
