@@ -252,7 +252,7 @@ body {
 .verify-stage {
   display: flex;
   gap: clamp(18px, 3vw, 40px);
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
   max-width: 720px;
@@ -261,10 +261,12 @@ body {
 .verify-result {
   flex: 1 1 0;
   max-width: 340px;
-  aspect-ratio: 1 / 1.08;
   border-radius: 20px;
   position: relative;
   overflow: hidden;
+}
+.verify-drop {
+  aspect-ratio: 1 / 1.08;
 }
 .verify-drop {
   background-color: var(--background);
@@ -303,7 +305,7 @@ body {
 }
 .verify-result {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
 }
 
