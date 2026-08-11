@@ -9,7 +9,7 @@ export default function AppFooter() {
   return (
     <footer className="border-t border-white/8 bg-black px-6 py-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
-        <div className="flex flex-col gap-6 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
+        <div className="flex flex-col gap-6 text-center sm:flex-row sm:items-start sm:justify-center sm:gap-20 sm:text-left">
           <div>
             <a href="mailto:imalytix@gmail.com" className="text-sm font-semibold text-white underline underline-offset-2">
               문의하기
