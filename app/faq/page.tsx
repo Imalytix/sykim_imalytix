@@ -46,7 +46,7 @@ export default function FaqPage() {
         <div className="mx-auto max-w-3xl">
           <div className="text-center">
             <h1 className="text-3xl font-bold tracking-tight text-[#f4f4f6]">자주 묻는 질문</h1>
-            <p className="mt-3 text-sm text-[#9a9aa4]">궁금하신 내용이 없으면 imalytix@gmail.com으로 문의해주세요.</p>
+            <p className="mt-3 text-sm text-[#9a9aa4]">추가적으로 궁금하신 내용은 imalytix@gmail.com으로 문의해주세요.</p>
           </div>
 
           <div className="mt-12 flex flex-col gap-3">
