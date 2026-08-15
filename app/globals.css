@@ -232,7 +232,10 @@ body {
 
 /* ─────────── 결과 데모(판단 근거) — 스크롤 고정 파트 ─────────── */
 .verify-pin {
-  height: 340vh;
+  /* 예전 340vh = 요약(카드 등장 + 게이지)까지. 뒤에 카드 안이 "핵심 결과"
+     상세로 굴러가는 파트(약 110vh)와 마무리 여유를 붙여 420vh가 됐다.
+     renderVerify()의 구간 값들이 이 높이에 맞춰 계산돼 있으니 함께 손볼 것. */
+  height: 420vh;
   position: relative;
 }
 .verify-pin__sticky {
@@ -307,6 +310,39 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  /* 사진 박스와 같은 비율 = 같은 높이. 카드는 이 높이에 고정된 창이고,
+     내용은 그 안에서 굴러간다(요약 → 핵심 결과). */
+  aspect-ratio: 1 / 1.08;
+}
+.verify-card {
+  position: relative;
+  height: 100%;
+}
+/* 내용 기둥. 카드보다 길고, 스크롤 진행도에 맞춰 translateY로 밀려 올라간다.
+   absolute라서 길이가 늘어도 카드 높이는 그대로다. */
+.verify-card__scroll {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  will-change: transform;
+}
+/* 창 위아래 경계에서 내용이 칼로 자른 듯 끊기지 않게 흐려 준다.
+   아래쪽은 "더 있다"는 힌트라 처음부터 켜져 있고, 위쪽은 굴러가기 시작해
+   잘린 줄이 생길 때부터 켜진다. */
+.verify-card__fade {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 44px;
+  background: linear-gradient(to top, #fff, rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+.verify-card__fade--top {
+  top: 0;
+  bottom: auto;
+  height: 32px;
+  background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0));
+  opacity: 0;
 }
 
 @media (max-width: 768px) {
@@ -316,9 +352,9 @@ body {
     max-width: 340px;
   }
   /* 모바일은 세로로 쌓이므로(flex-direction: column) 두 박스가 서로 높이를
-     맞출 필요가 없음 — verify-drop은 정사각형으로 고정하고, verify-result는
-     카드 내용(로고 줄 + 썸네일 줄 + 게이지)이 실제로 필요로 하는 만큼
-     자유롭게 높이가 늘어나게 둬서 overflow:hidden에 위쪽 줄이 잘리지 않게 함. */
+     맞출 필요가 없음 — verify-drop은 정사각형으로 고정하고, 카드는 사진과
+     문구까지 한 화면에 들어오도록 높이를 직접 묶는다(안쪽 내용은 어차피
+     스크롤로 굴러가므로 창이 작아도 다 보여줄 수 있음). */
   .verify-drop {
     flex: 0 0 auto;
     width: 100%;
@@ -330,6 +366,7 @@ body {
     width: 100%;
     max-width: min(320px, 92vw);
     aspect-ratio: auto;
+    height: min(38vh, 330px);
   }
 }
 

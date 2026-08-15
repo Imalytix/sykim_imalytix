@@ -44,6 +44,15 @@ const USE_CASES = [
   { tag: "SNS", img: "/use-cases/sns.png" },
 ];
 
+// 데모 카드가 요약(게이지) 다음으로 굴려 보여주는 "핵심 결과" 상세 —
+// 디자인 목업의 익스텐션 팝업 하단부와 같은 구성. 실제 분석 결과가 아니라
+// 연출용 고정 문구다.
+const DEMO_SIGNALS = [
+  { title: "촬영 정보가 확인되지 않습니다.", desc: "카메라로 촬영된 기록이 남아 있지 않습니다." },
+  { title: "제작 이력을 확인할 수 없습니다.", desc: "제작·편집 기록인 C2PA 흔적이 이미지에 남아 있지 않습니다." },
+  { title: "AI 생성과 유사한 특징이 다수 발견되었습니다.", desc: "질감과 패턴에서 AI 생성 이미지와 유사한 특성이 분석되었습니다." },
+];
+
 const TECH = [
   { icon: <Layers className="h-5 w-5" />, title: "Fusion Engine", desc: "여러 AI 모델의 분석 결과를 융합해 하나의 모델만 봤을 때의 한계를 보완합니다." },
   { icon: <ScanEye className="h-5 w-5" />, title: "Multi-model Analysis", desc: "서로 다른 관점의 AI 모델이 이미지를 동시에 대조 분석합니다." },
@@ -97,6 +106,9 @@ export default function Home() {
   const gaugeNumRef = useRef<HTMLSpanElement | null>(null);
   const badgeRef = useRef<HTMLSpanElement | null>(null);
   const descRef = useRef<HTMLParagraphElement | null>(null);
+  const cardScrollRef = useRef<HTMLDivElement | null>(null);
+  const cardFadeRef = useRef<HTMLDivElement | null>(null);
+  const cardFadeTopRef = useRef<HTMLDivElement | null>(null);
 
   // 아치 배치·스크롤 연출 전체 — 참고 사이트(imalytix-web-deploy/js/main.js)의
   // layoutRing()/renderHero()/renderFlight()/renderVerify()를 그대로 이식.
@@ -122,6 +134,11 @@ export default function Home() {
     const gaugeNum = gaugeNumRef.current;
     const badge = badgeRef.current;
     const desc = descRef.current;
+    const cardScroll = cardScrollRef.current;
+    const cardFade = cardFadeRef.current;
+    const cardFadeTop = cardFadeTopRef.current;
+    // 카드 상세 파트에서 한 줄씩 차례로 떠오르는 요소들(순서 = DOM 순서)
+    const reveals = cardScroll ? Array.from(cardScroll.querySelectorAll<HTMLElement>("[data-reveal]")) : [];
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
@@ -194,7 +211,18 @@ export default function Home() {
     function measureFlight() {
       const vh = window.innerHeight;
       flight.s = hero!.offsetTop + (hero!.offsetHeight - vh) * 0.55;
-      flight.e = verify!.offsetTop + (verify!.offsetHeight - vh) * 0.12;
+      // 0.09 = 예전 340vh 섹션에서의 0.12와 같은 지점(약 29vh). 섹션이
+      // 상세 파트만큼 길어졌으므로 비율을 낮춰 착지 시점을 그대로 유지한다.
+      flight.e = verify!.offsetTop + (verify!.offsetHeight - vh) * 0.09;
+    }
+
+    /* ── 카드 안에서 요약 → 상세로 굴러가는 거리 ──
+       카드는 고정 높이 뷰포트이고 그 안의 내용 기둥(cardScroll)을 스크롤에
+       맞춰 위로 밀어 올린다. 넘치는 만큼이 곧 굴릴 거리라 실측해서 쓴다. */
+    let cardScrollMax = 0;
+    function measureCard() {
+      if (!cardScroll) return;
+      cardScrollMax = Math.max(0, cardScroll.scrollHeight - resultPanel!.clientHeight);
     }
 
     function armFlight(spin: number) {
@@ -310,20 +338,23 @@ export default function Home() {
       const total = verify!.offsetHeight - window.innerHeight;
       const p = clamp(-rect.top / total, 0, 1);
 
+      // 아래 구간들은 섹션이 340vh였을 때의 비율을 420vh 기준으로 환산한 값
+      // (스크롤 가능 구간 240vh → 320vh). 각 연출이 도는 스크롤 지점은 예전
+      // 그대로 두고, 뒤에 붙은 상세 파트가 남은 구간을 쓰도록 하기 위함.
       if (verifyHead) {
-        const h = norm(p, 0.02, 0.18);
+        const h = norm(p, 0.015, 0.135);
         verifyHead.style.opacity = String(h);
         verifyHead.style.transform = `translateY(${(1 - h) * 26}px)`;
       }
 
       // 결과 패널이 아래에서 올라옴
-      const r = norm(p, 0.3, 0.56);
+      const r = norm(p, 0.225, 0.42);
       const re = easeOutCubic(r);
       resultPanel!.style.transform = `translateY(${(1 - re) * 105}%)`;
-      resultPanel!.style.opacity = String(norm(p, 0.3, 0.38));
+      resultPanel!.style.opacity = String(norm(p, 0.225, 0.285));
 
       // 게이지가 채워지며 숫자가 오름 — 다 차면 배지/문구 등장
-      const g = norm(p, 0.42, 0.7);
+      const g = norm(p, 0.315, 0.525);
       const eg = easeOutCubic(g);
       const pct = Math.round(75 * eg);
       if (gaugeCircle) gaugeCircle.style.background = `conic-gradient(#f23e3e ${pct * 3.6}deg, #f2f2f2 0deg)`;
@@ -331,6 +362,19 @@ export default function Home() {
       const doneOpacity = String(norm(g, 0.94, 1));
       if (badge) badge.style.opacity = doneOpacity;
       if (desc) desc.style.opacity = doneOpacity;
+
+      // 요약이 끝나면 카드 안 내용이 위로 밀려 올라가며 "핵심 결과" 상세로
+      // 넘어간다 — 팝업을 손으로 스크롤해 내리는 것과 같은 움직임.
+      const s = easeInOutCubic(norm(p, 0.55, 0.89));
+      if (cardScroll) cardScroll.style.transform = `translateY(${-s * cardScrollMax}px)`;
+      // 더 볼 게 남았다는 힌트 — 바닥까지 굴러가면 사라진다
+      if (cardFade) cardFade.style.opacity = String(1 - norm(s, 0.72, 1));
+      if (cardFadeTop) cardFadeTop.style.opacity = String(norm(s, 0.02, 0.18));
+      reveals.forEach((el, i) => {
+        const e = easeOutCubic(norm(s, i * 0.09, i * 0.09 + 0.3));
+        el.style.opacity = String(e);
+        el.style.transform = `translateY(${(1 - e) * 16}px)`;
+      });
     }
 
     let rafId = 0;
@@ -345,12 +389,14 @@ export default function Home() {
     function handleResize() {
       layoutRing();
       measureFlight();
+      measureCard();
       flight.armed = false;
       onScroll();
     }
     function handleLoad() {
       layoutRing();
       measureFlight();
+      measureCard();
       onScroll();
     }
     function handleVisibility() {
@@ -364,6 +410,7 @@ export default function Home() {
 
     layoutRing();
     measureFlight();
+    measureCard();
     onScroll();
     // 웹폰트 등으로 섹션 높이가 첫 페인트 이후 바뀔 수 있어, 이미 load가
     // 끝난 상태로 마운트된 경우(주로 이 경우)에도 한 번 더 재계산.
@@ -578,43 +625,72 @@ export default function Home() {
                 </div>
 
                 <div className="verify-result">
-                  <div ref={resultPanelRef} className="w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
-                    <div className="flex items-center justify-between px-4 py-2.5">
-                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold tracking-tight">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- 카드 안 고정 크기 워드마크, next/image 이점 없음 */}
-                        <img src="/imalytix-icon.png" alt="" className="h-4 w-auto" /> imalytix
-                      </span>
-                      <X className="h-3.5 w-3.5 text-[#bbb]" />
-                    </div>
-                    <div className="flex items-center gap-2.5 border-t border-black/6 px-4 py-2.5">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- 스크롤 연출용 고정 썸네일, next/image 이점 없음 */}
-                      <img src={ARCH_PHOTOS[0]} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
-                      <div className="min-w-0">
-                        <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">이 이미지를 분석했습니다.</div>
-                        <div className="text-[11px] text-[#8a8a8a]">방금 전</div>
+                  <div ref={resultPanelRef} className="verify-card w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
+                    <div ref={cardScrollRef} className="verify-card__scroll">
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <span className="flex items-center gap-1.5 text-[13px] font-extrabold tracking-tight">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- 카드 안 고정 크기 워드마크, next/image 이점 없음 */}
+                          <img src="/imalytix-icon.png" alt="" className="h-4 w-auto" /> imalytix
+                        </span>
+                        <X className="h-3.5 w-3.5 text-[#bbb]" />
                       </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-3 px-4 py-6">
-                      <div
-                        ref={gaugeCircleRef}
-                        className="relative flex h-24 w-24 items-center justify-center rounded-full"
-                        style={{ background: "conic-gradient(#f23e3e 0deg, #f2f2f2 0deg)" }}
-                      >
-                        <div className="absolute inset-[7px] flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-center">
-                          <span className="text-[9px] font-semibold leading-none text-[#9a9aa4]">AI 생성 가능성</span>
-                          <span ref={gaugeNumRef} className="text-xl font-extrabold leading-none">
-                            0%
-                          </span>
+                      <div className="flex items-center gap-2.5 border-t border-black/6 px-4 py-2.5">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 스크롤 연출용 고정 썸네일, next/image 이점 없음 */}
+                        <img src={ARCH_PHOTOS[0]} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                        <div className="min-w-0">
+                          <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">이 이미지를 분석했습니다.</div>
+                          <div className="text-[11px] text-[#8a8a8a]">방금 전</div>
                         </div>
                       </div>
-                      <span ref={badgeRef} className="rounded-full bg-[#f23e3e] px-3 py-1 text-[11px] font-bold text-white opacity-0 transition-opacity duration-300">
-                        높음
-                      </span>
-                      <p ref={descRef} className="mt-0.5 text-[12px] text-[#7a7a7a] opacity-0 transition-opacity duration-300">
-                        AI 생성 이미지일 가능성이 높습니다.
-                      </p>
+                      <div className="flex flex-col items-center gap-3 px-4 py-6">
+                        <div
+                          ref={gaugeCircleRef}
+                          className="relative flex h-24 w-24 items-center justify-center rounded-full"
+                          style={{ background: "conic-gradient(#f23e3e 0deg, #f2f2f2 0deg)" }}
+                        >
+                          <div className="absolute inset-[7px] flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-center">
+                            <span className="text-[9px] font-semibold leading-none text-[#9a9aa4]">AI 생성 가능성</span>
+                            <span ref={gaugeNumRef} className="text-xl font-extrabold leading-none">
+                              0%
+                            </span>
+                          </div>
+                        </div>
+                        <span ref={badgeRef} className="rounded-full bg-[#f23e3e] px-3 py-1 text-[11px] font-bold text-white opacity-0 transition-opacity duration-300">
+                          높음
+                        </span>
+                        <p ref={descRef} className="mt-0.5 text-[12px] text-[#7a7a7a] opacity-0 transition-opacity duration-300">
+                          AI 생성 이미지일 가능성이 높습니다.
+                        </p>
+                      </div>
+                      {/* ── 여기서부터가 스크롤로 넘어오는 상세 파트 ── */}
+                      <div data-reveal className="border-t border-black/6 px-4 pt-3 text-[12px] font-extrabold opacity-0">
+                        핵심 결과
+                      </div>
+                      <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
+                        {DEMO_SIGNALS.map((sig) => (
+                          <div key={sig.title} data-reveal className="flex items-start gap-2 rounded-xl border border-black/8 bg-[#fafafa] px-3 py-2.5 opacity-0">
+                            <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-black/15 text-[#9a9aa4]">
+                              <X className="h-2.5 w-2.5" strokeWidth={3} />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="break-keep text-[12px] font-bold leading-snug">{sig.title}</div>
+                              <div className="mt-0.5 break-keep text-[11px] leading-snug text-[#8a8a8a]">{sig.desc}</div>
+                            </div>
+                          </div>
+                        ))}
+                        <div data-reveal className="rounded-xl border border-[#52bdff]/60 bg-[#52bdff]/[0.06] px-3 py-3 opacity-0">
+                          <div className="break-keep text-[12px] font-bold">이 이미지를 어떻게 해석하면 좋을까요?</div>
+                          <p className="mt-1 break-keep text-[11px] leading-relaxed text-[#6b6b76]">
+                            여러 분석 신호에서 AI 생성과 유사한 특징이 확인되었습니다. 중요한 의사결정에 활용하기 전에는 원본 출처와 다른 정보도 함께 확인하는 것을 권장합니다.
+                          </p>
+                        </div>
+                        {/* 목업의 CTA를 그대로 그린 연출용 요소 — 실제로 누르는 버튼이 아니라 <div> */}
+                        <div data-reveal className="rounded-xl bg-[#52bdff] py-2.5 text-center text-[12px] font-bold text-white opacity-0">자세한 분석 보기</div>
+                      </div>
                     </div>
-                    <div className="h-10 border-t border-black/6 px-4" />
+                    {/* 아래에 더 있다는 힌트 — 바닥까지 굴러가면 걷힌다 */}
+                    <div ref={cardFadeRef} className="verify-card__fade" />
+                    <div ref={cardFadeTopRef} className="verify-card__fade verify-card__fade--top" />
                   </div>
                 </div>
               </div>
