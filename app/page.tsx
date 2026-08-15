@@ -660,7 +660,7 @@ export default function Home() {
             <section id="tech" className="mt-24 rounded-3xl border border-white/8 bg-white/[0.02] px-6 py-16 text-center">
               <h2 className="break-keep text-2xl font-extrabold tracking-tight text-[#f4f4f6] sm:text-[40px]">국내외 AI 전문가의 자문을 바탕으로 설계했습니다.</h2>
               <p className="mx-auto mt-3 max-w-xl break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
-                탐지 모델 구조와 검증 방식은 KAIST 연구실, KT AX 전략팀과{" "}
+                탐지 모델 구조와 검증 방식은 KAIST 연구실, KT 임직원과{" "}
                 <br className="hidden sm:block" />
                 해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.
               </p>
