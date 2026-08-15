@@ -687,7 +687,7 @@ export default function Home() {
                 <br className="sm:hidden" />
                 보던 화면 그대로
               </h2>
-              <p className="mx-auto mt-3 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-2xl">
+              <p className="mx-auto mt-3 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-none sm:text-2xl">
                 설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든{" "}
                 <br className="sm:hidden" />
                 우클릭으로 바로 검증할 수 있습니다.
