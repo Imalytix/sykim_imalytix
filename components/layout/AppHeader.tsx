@@ -47,8 +47,11 @@ export default function AppHeader() {
     }
   };
 
+  // 스크롤을 내려도 GNB가 화면 상단에 붙어 있도록 sticky. z-50은 본문 위,
+  // 날아가는 데모 카드(.fly-card, z-60) 아래 — 카드는 헤더를 가로질러
+  // 자유롭게 날아가는 연출이라 가리지 않는다.
   return (
-    <header className="h-16 shrink-0 bg-black">
+    <header className="sticky top-0 z-50 h-16 shrink-0 bg-black">
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6 sm:grid sm:grid-cols-[1fr_auto_1fr]">
         {/* 로고/Home은 next/link가 아니라 일반 <a> — 이미 "/"에 있을 때(분석 결과
             화면 등) next/link는 같은 라우트로는 아무 것도 안 하고 넘어가서

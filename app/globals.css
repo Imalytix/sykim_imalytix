@@ -272,7 +272,14 @@ body {
   aspect-ratio: 1 / 1.08;
 }
 .verify-drop {
-  background-color: var(--background);
+  /* "투명 배경" 체커보드 — 시안이 저해상도 이미지라 CSS 그라디언트로 직접
+     그린다(어느 화면 배율에서도 선명하고, 이미지 요청도 없다).
+     repeating-conic-gradient의 나머지 절반을 transparent로 두면 아래
+     background-color가 비쳐서 두 톤이 번갈아 찍힌다 = 체커보드.
+     background-size의 절반(12px)이 한 칸 크기. */
+  background-color: #141416;
+  background-image: repeating-conic-gradient(#1b1c20 0% 25%, transparent 0% 50%);
+  background-size: 24px 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
