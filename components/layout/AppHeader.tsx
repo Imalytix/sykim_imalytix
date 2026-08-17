@@ -58,7 +58,7 @@ export default function AppHeader() {
             컴포넌트 상태(분석 결과 등)가 안 지워집니다. 진짜 새로고침으로
             항상 첫 화면 상태로 돌아가게 합니다. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- 의도적으로 풀 리로드 (위 주석 참고) */}
-        <a href="/" className="flex shrink-0 items-center gap-2 text-[18px] font-extrabold tracking-tight text-white">
+        <a href="/" className="wordmark flex shrink-0 items-center gap-2 text-[18px] font-extrabold tracking-tight text-white">
           <Image src="/imalytix-icon.png" alt="" width={249} height={270} priority className="h-6 w-auto" />
           imalytix
         </a>
@@ -103,7 +103,7 @@ export default function AppHeader() {
             href="https://chromewebstore.google.com/detail/imalytix-%EC%9D%B4%EB%AF%B8%EC%A7%80-%ED%83%90%EC%83%89/lkcgfkikbdaiiajjdhmbllnifmebacbn"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-[#52bdff] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+            className="hidden rounded-lg bg-[#52bdff] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:inline-block"
           >
             Download
           </a>

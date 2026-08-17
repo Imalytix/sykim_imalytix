@@ -43,7 +43,7 @@ export default function AppFooter() {
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-3">
             <Image src="/imalytix-icon.png" alt="" width={249} height={270} className="h-10 w-auto" />
-            <span className="text-4xl font-extrabold tracking-tight text-white">imalytix</span>
+            <span className="wordmark text-4xl font-extrabold tracking-tight text-white">imalytix</span>
           </div>
           <div className="text-center text-xs text-[#6b6b76] sm:text-right">
             <div>© 2026 Imalytix AI. All rights reserved.</div>

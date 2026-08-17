@@ -628,7 +628,7 @@ export default function Home() {
                   <div ref={resultPanelRef} className="verify-card w-full overflow-hidden rounded-2xl bg-white text-left text-[#1a1a1a]" style={{ opacity: 0 }}>
                     <div ref={cardScrollRef} className="verify-card__scroll">
                       <div className="flex items-center justify-between px-4 py-2.5">
-                        <span className="flex items-center gap-1.5 text-[13px] font-extrabold tracking-tight">
+                        <span className="wordmark flex items-center gap-1.5 text-[13px] font-extrabold tracking-tight">
                           {/* eslint-disable-next-line @next/next/no-img-element -- 카드 안 고정 크기 워드마크, next/image 이점 없음 */}
                           <img src="/imalytix-icon.png" alt="" className="h-4 w-auto" /> imalytix
                         </span>
@@ -787,9 +787,9 @@ export default function Home() {
                 href="https://chromewebstore.google.com/detail/imalytix-%EC%9D%B4%EB%AF%B8%EC%A7%80-%ED%83%90%EC%83%89/lkcgfkikbdaiiajjdhmbllnifmebacbn"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-8 hidden rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)] sm:inline-block"
+                className="cta-shine mt-8 hidden rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)] sm:inline-block"
               >
-                <span className="cta-sheen">익스텐션 다운로드</span>
+                <span>익스텐션 다운로드</span>
               </a>
             </section>
           </>
