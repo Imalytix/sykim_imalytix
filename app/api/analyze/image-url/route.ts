@@ -9,9 +9,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { visionBudgetMs } from "@/lib/vision/deadline";
 
 export const runtime = "nodejs";
-// 상세한 이유는 app/api/analyze/image/route.ts의 같은 자리 주석 참고 —
-// 상한을 넘는 maxDuration은 함수를 통째로 서빙 불가 상태로 만든다.
-export const maxDuration = 10;
+// 상세한 이유는 app/api/analyze/image/route.ts의 같은 자리 주석 참고.
+export const maxDuration = 60;
 
 const VALID_MODES: AnalysisMode[] = ["quick", "standard", "deep"];
 

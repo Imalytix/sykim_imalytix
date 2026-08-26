@@ -25,11 +25,11 @@ const nextConfig: NextConfig = {
   //
   // 그래서 @img 전체를 분석 라우트의 함수 번들에 강제로 포함시킨다. 키는 라우트
   // 경로 글롭, 값은 프로젝트 루트 기준 글롭이다(next/dist/docs 의 output.md 참고).
-  // /api/diag 도 같이 넣어 둔 건 수정이 먹었는지 확인하는 용도 — 진단 라우트를
-  // 지울 때 이 줄도 함께 지울 것.
+  //
+  // 이걸 지우면 분석 라우트가 다시 통째로 죽는다. 증상이 "이미지 분석 실패"가
+  // 아니라 "모든 메서드가 500" 이라 원인이 한눈에 안 보이니 주의할 것.
   outputFileTracingIncludes: {
     "/api/analyze/*": ["./node_modules/@img/**/*"],
-    "/api/diag": ["./node_modules/@img/**/*"],
   },
 };
 
