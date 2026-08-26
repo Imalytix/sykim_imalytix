@@ -7,6 +7,7 @@ import AnalysisResultView from "@/components/results/AnalysisResultView";
 import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
+import { trackVerificationComplete, trackVerificationStart, verdictFromProbability } from "@/lib/analytics/gtag";
 import type { AnalysisResult } from "@/types/analysis";
 
 // 히어로 아치에 올릴 실제 사진. 첫 번째(hero-1)가 스크롤 시 아치를 이탈해
@@ -59,11 +60,17 @@ const TECH = [
   { icon: <FileCheck2 className="h-5 w-5" />, title: "Explainable Results", desc: "결과와 함께 판단 근거를 제공하여 사용자가 직접 확인하고 이해할 수 있습니다." },
 ];
 
-async function analyzeImageFile(file: File): Promise<AnalysisResult> {
+/** 결과와 함께 왕복 소요 시간을 돌려준다 — GA의 verification_complete에 싣는 값.
+ *  측정을 이 안에서 하는 이유가 둘 있다: 재는 구간(업로드 + 서버 처리 + 응답)이
+ *  정확히 이 함수의 일이고, performance.now()를 컴포넌트 본문에서 부르면
+ *  react-hooks/purity가 렌더 중 비순수 호출로 잡는다. */
+async function analyzeImageFile(file: File): Promise<{ result: AnalysisResult; latencyMs: number }> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("mode", "standard");
 
+  // 시스템 시계 변경에 영향받지 않는 단조 증가 시계.
+  const startedAt = performance.now();
   const response = await fetch("/api/analyze/image", { method: "POST", body: formData });
   // Vercel이 요청/응답 본문이 4.5MB를 넘으면 우리 라우트 코드가 실행되기도
   // 전에 플랫폼 레벨에서 JSON이 아닌 응답(예: "Request Entity Too Large")을
@@ -91,7 +98,7 @@ async function analyzeImageFile(file: File): Promise<AnalysisResult> {
     throw new Error(`분석에 실패했습니다. (서버 응답 ${response.status})`);
   }
   if (!data) throw new Error("서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.");
-  return data as AnalysisResult;
+  return { result: data as AnalysisResult, latencyMs: performance.now() - startedAt };
 }
 
 export default function Home() {
@@ -506,12 +513,23 @@ export default function Home() {
       setErrorMessage("이미지를 먼저 선택해주세요.");
       return;
     }
+    // 파일을 확보한 뒤에 보낸다 — 파일 없이 버튼만 누른 경우는 검증을 시작한 게
+    // 아니라서, 여기서 세면 start 대비 complete 비율이 실제보다 나빠 보인다.
+    // 웹은 항상 파일 업로드 경로다("url"은 익스텐션의 image-url 라우트용 값).
+    trackVerificationStart("upload");
     try {
       setErrorMessage(null);
       setIsLoading(true);
-      const result = await analyzeImageFile(file);
+      const { result, latencyMs } = await analyzeImageFile(file);
       setPreviewUrl(result.analyzed_image_data_url);
       setAnalysisResult(result);
+      trackVerificationComplete({
+        verdict: verdictFromProbability(result.final_result.ai_probability),
+        // DB에서 같은/유사한 이미지를 찾았는지 — 캐시된 결과를 재사용했든
+        // 점수에만 영향을 줬든 "출처 일치가 있었다"는 사실은 동일하다.
+        hasSourceMatch: result.duplicate_check.matches.length > 0,
+        latencyMs,
+      });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "분석에 실패했습니다.");
     } finally {

@@ -10,6 +10,7 @@ import ScoreGauge, { toneForScore } from "@/components/results/ScoreGauge";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import type { AnalysisResult } from "@/types/analysis";
 import { isValidBBox } from "@/lib/utils/bbox";
+import { trackEvidenceExpand, type EvidenceType } from "@/lib/analytics/gtag";
 import { clampPercent } from "@/lib/utils/score";
 
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = { openai: "OpenAI", gemini: "Gemini", claude: "Claude" };
@@ -50,7 +51,10 @@ function KeyFindingRow({ ok, title, sub, tone }: { ok: boolean; title: string; s
  *  모서리에 앉히고 90°씩 돌려서 쓴다 — 어떤 비율에서도 모양이 같다. */
 function CornerMark({ position, color }: { position: string; color: string }) {
   return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" className={`absolute h-[17px] w-[17px] ${position}`} style={{ color }}>
+    // pointer-events-none: 모서리 표시는 장식일 뿐 클릭 대상이 아니다. 이게 없으면
+    // 17×17 SVG 박스가 자기 박스 경계 바깥 4px까지 클릭을 가로채서, 아래 깔린 더 큰
+    // 박스를 그 언저리에서 누를 수 없게 된다(면적순 z-index로 작은 박스가 위에 있음).
+    <svg viewBox="0 0 20 20" aria-hidden="true" className={`pointer-events-none absolute h-[17px] w-[17px] ${position}`} style={{ color }}>
       <path d="M3.5 13 V 10 A 6.5 6.5 0 0 1 10 3.5 H 13" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
     </svg>
   );
@@ -69,11 +73,30 @@ function SpecRow({ label, value }: { label: string; value: string }) {
 
 /** One collapsible section inside the "자세한 분석" panel — light-styled to
  *  match the design handoff (white bg, dark text), independently expandable. */
-function AccordionRow({ title, subtitle, defaultOpen = false, children }: { title: string; subtitle: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function AccordionRow({
+  title,
+  subtitle,
+  evidenceType,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  evidenceType: EvidenceType;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(defaultOpen);
+  // 펼칠 때만 보낸다 — 접는 동작까지 세면 한 번 열어본 근거가 두 건으로 잡힌다.
+  // 전송은 setOpen 콜백 밖에서 한다. 업데이터 함수는 순수해야 하고, StrictMode는
+  // 그걸 두 번 호출할 수 있어서 안에 넣으면 이벤트가 중복 전송된다.
+  const toggle = () => {
+    if (!open) trackEvidenceExpand(evidenceType);
+    setOpen((wasOpen) => !wasOpen);
+  };
   return (
     <div className="rounded-xl border border-black/8">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left">
+      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left">
         <div>
           <div className="text-[14px] font-bold text-[#1a1a1a]">{title}</div>
           <div className="text-xs text-[#8a8a8a]">{subtitle}</div>
@@ -228,7 +251,13 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                         <button
                           key={i}
                           type="button"
-                          onClick={() => setSelectedRegionIndex((prev) => (prev === i ? null : i))}
+                          onClick={() => {
+                            // 같은 박스를 다시 눌러 닫는 경우는 제외 — 아코디언과
+                            // 같은 기준으로 "펼쳐본" 것만 센다. 박스 라벨/설명은
+                            // 보내지 않는다(이미지에서 유래한 문자열이라).
+                            if (selectedRegionIndex !== i) trackEvidenceExpand("roi_region");
+                            setSelectedRegionIndex((prev) => (prev === i ? null : i));
+                          }}
                           aria-label={`의심 부위 ${i + 1}: ${region.label} — 설명 보기`}
                           aria-pressed={selectedRegionIndex === i}
                           className="pointer-events-auto absolute rounded-md border-2 transition-colors"
@@ -318,7 +347,9 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                     <ChevronLeft className="h-4 w-4" /> 자세한 분석
                   </button>
 
-                  <AccordionRow title="AI 생성 분석" subtitle="질감 · 패턴 · 경계 검사" defaultOpen>
+                  {/* defaultOpen이라 처음부터 펼쳐져 있다 — 사용자가 직접 누른 게
+                      아니므로 evidence_expand는 나가지 않는다(접었다 다시 펼치면 나감). */}
+                  <AccordionRow evidenceType="ai_analysis" title="AI 생성 분석" subtitle="질감 · 패턴 · 경계 검사" defaultOpen>
                     <SpecRow label="종합 점수" value={`${scorePercent} / 100`} />
                     {visionResults
                       .filter((v) => !v.error_message)
@@ -335,7 +366,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                     </p>
                   </AccordionRow>
 
-                  <AccordionRow title="촬영 정보 (EXIF)" subtitle="카메라 · 촬영 조건">
+                  <AccordionRow evidenceType="exif" title="촬영 정보 (EXIF)" subtitle="카메라 · 촬영 조건">
                     {camera ? (
                       <>
                         {(camera.make || camera.model) && <SpecRow label="카메라" value={[camera.make, camera.model].filter(Boolean).join(" ")} />}
@@ -356,7 +387,7 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                     </p>
                   </AccordionRow>
 
-                  <AccordionRow title="콘텐츠 제작 이력 (C2PA)" subtitle="제작 · 편집 이력">
+                  <AccordionRow evidenceType="c2pa" title="콘텐츠 제작 이력 (C2PA)" subtitle="제작 · 편집 이력">
                     <SpecRow label="서명 상태" value={metadata?.c2pa_found ? "서명 있음" : "서명 없음"} />
                     <SpecRow label="편집 이력" value="확인 불가" />
                     <SpecRow label="발급 기관" value="—" />
@@ -365,14 +396,14 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                     </p>
                   </AccordionRow>
 
-                  <AccordionRow title="이미지 메타데이터" subtitle="파일 기본 정보">
+                  <AccordionRow evidenceType="image_metadata" title="이미지 메타데이터" subtitle="파일 기본 정보">
                     <SpecRow label="파일 형식" value={(metadata?.file_info.format ?? analysisResult.input.mime_type ?? "알 수 없음").toUpperCase()} />
                     <SpecRow label="해상도" value={`${analysisResult.input.width} × ${analysisResult.input.height}`} />
                     {Boolean(metadata?.file_info.size_bytes) && <SpecRow label="용량" value={formatBytes(metadata!.file_info.size_bytes)} />}
                     {metadata?.file_info.color_space && <SpecRow label="색 공간" value={metadata.file_info.color_space} />}
                   </AccordionRow>
 
-                  <AccordionRow title="유사 이미지 검색" subtitle="DB 내 이미지 역탐지">
+                  <AccordionRow evidenceType="similar_search" title="유사 이미지 검색" subtitle="DB 내 이미지 역탐지">
                     <SpecRow label="동일 이미지" value={`${duplicateCheck?.used_cached_result ? 1 : 0}건`} />
                     <SpecRow label="유사 이미지" value={`${duplicateMatches.length}건`} />
                     <SpecRow label="최초 게시 추정" value="확인 불가" />
