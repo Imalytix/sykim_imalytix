@@ -16,8 +16,30 @@ export const maxDuration = 60;
 
 const VALID_MODES: AnalysisMode[] = ["quick", "standard", "deep"];
 
+/**
+ * 핸들러 전체를 감싸는 마지막 방어선.
+ *
+ * 아래 handleAnalyzeImage()는 세션 조회·레이트리밋·본문 파싱 구간이 자체
+ * try 바깥에 있어서, 거기서 예외가 나면 Next가 HTML 500 페이지를 내보낸다.
+ * 그러면 클라이언트는 JSON의 detail을 못 찾아 원인을 알 수 없는 문구만 띄우고,
+ * 서버 쪽 단서도 남지 않는다 — 실제로 이 형태의 장애를 진단하는 데 한참 걸렸다.
+ * 여기서 잡아 두면 무슨 일이 나든 요청 ID가 붙은 JSON이 나가고, 원인은 로그와
+ * verification_requests에 남는다.
+ */
 export async function POST(request: NextRequest) {
   const requestId = makeRequestId();
+  try {
+    return await handleAnalyzeImage(request, requestId);
+  } catch (error) {
+    console.error(`[api/analyze/image] unhandled failure ${requestId}`, error);
+    return NextResponse.json(
+      { detail: `이미지 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (요청 ID: ${requestId})` },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleAnalyzeImage(request: NextRequest, requestId: string) {
   const context = extractRequestContext(request);
   const startedAt = Date.now();
 

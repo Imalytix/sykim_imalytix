@@ -26,8 +26,21 @@ export async function OPTIONS(request: NextRequest) {
   return corsPreflightResponse(request);
 }
 
+// 마지막 방어선 — 자세한 이유는 app/api/analyze/image/route.ts의 POST 주석 참고.
+// handlePost()의 앞부분(세션 조회·레이트리밋·본문 파싱)이 자체 try 바깥이라,
+// 여기서 안 잡으면 Next가 HTML 500을 내보내 클라이언트가 원인을 알 수 없게 된다.
 export async function POST(request: NextRequest) {
-  const response = await handlePost(request);
+  let response: NextResponse;
+  try {
+    response = await handlePost(request);
+  } catch (error) {
+    const requestId = makeRequestId();
+    console.error(`[api/analyze/image-url] unhandled failure ${requestId}`, error);
+    response = NextResponse.json(
+      { detail: `이미지 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (요청 ID: ${requestId})` },
+      { status: 500 },
+    );
+  }
   return withExtensionCors(request, response);
 }
 
