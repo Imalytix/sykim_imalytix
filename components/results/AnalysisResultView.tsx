@@ -44,6 +44,18 @@ function KeyFindingRow({ ok, title, sub, tone }: { ok: boolean; title: string; s
   );
 }
 
+/** 의심 부위 박스의 모서리 액센트 — 목업처럼 굵고 끝이 둥근 ㄱ자 호를 그린다.
+ *  (예전에는 2×2 사각형 점이었다.) 박스는 가로세로 비율이 제각각이라 SVG를
+ *  박스에 늘려 씌우면 호가 타원으로 찌그러지므로, 고정 크기 SVG 4개를 각
+ *  모서리에 앉히고 90°씩 돌려서 쓴다 — 어떤 비율에서도 모양이 같다. */
+function CornerMark({ position, color }: { position: string; color: string }) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className={`absolute h-[17px] w-[17px] ${position}`} style={{ color }}>
+      <path d="M3.5 13 V 10 A 6.5 6.5 0 0 1 10 3.5 H 13" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** label-left/value-right row — the "종합 점수 / 42/100" style spec row used
  *  throughout the design handoff's detail accordions. */
 function SpecRow({ label, value }: { label: string; value: string }) {
@@ -208,8 +220,11 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                 </div>
                 {previewUrl && suspiciousRegions.length > 0 && (
                   <div className="pointer-events-none absolute inset-0">
-                    {suspiciousRegions.map((region, i) =>
-                      isValidBBox(region.bbox) ? (
+                    {suspiciousRegions.map((region, i) => {
+                      if (!isValidBBox(region.bbox)) return null;
+                      const w = region.bbox.x2 - region.bbox.x1;
+                      const h = region.bbox.y2 - region.bbox.y1;
+                      return (
                         <button
                           key={i}
                           type="button"
@@ -220,22 +235,27 @@ export default function AnalysisResultView({ analysisResult, previewUrl, errorMe
                           style={{
                             left: `${region.bbox.x1 * 100}%`,
                             top: `${region.bbox.y1 * 100}%`,
-                            width: `${(region.bbox.x2 - region.bbox.x1) * 100}%`,
-                            height: `${(region.bbox.y2 - region.bbox.y1) * 100}%`,
+                            width: `${w * 100}%`,
+                            height: `${h * 100}%`,
                             borderColor: tone.ring,
                             backgroundColor: selectedRegionIndex === i ? `${tone.ring}33` : "transparent",
+                            // 박스는 투명해도 그 면 전체가 클릭을 받는다. 그래서 이미지
+                            // 거의 전체를 덮는 큰 박스가 하나라도 있으면, 그 위에 겹친
+                            // 작은 박스들이 DOM 순서에 따라 통째로 가려져 클릭이 안 됐다.
+                            // 면적이 좁을수록 위로 올려서(넓이 → z-index 역순) 안쪽 박스가
+                            // 항상 먼저 잡히게 한다 — 순서와 무관하게 성립.
+                            zIndex: Math.max(1, Math.round((1 - w * h) * 1000)),
                           }}
                         >
-                          {/* 모서리 핸들 — 디자인 목업의 선택 박스 스타일. 박스 색은
-                              전체 판정 등급(낮음/중간/높음)과 같은 톤을 씀 —
-                              "AI 탐지율 판단 기준" 색상 스펙과 동일. */}
-                          <span className="absolute -top-1 -left-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
-                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
-                          <span className="absolute -bottom-1 -left-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
-                          <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-[2px]" style={{ backgroundColor: tone.ring }} />
+                          {/* 모서리 액센트 — 박스 색은 전체 판정 등급(낮음/중간/높음)과
+                              같은 톤을 씀("AI 탐지율 판단 기준" 색상 스펙과 동일). */}
+                          <CornerMark position="-top-[4px] -left-[4px]" color={tone.ring} />
+                          <CornerMark position="-top-[4px] -right-[4px] rotate-90" color={tone.ring} />
+                          <CornerMark position="-bottom-[4px] -right-[4px] rotate-180" color={tone.ring} />
+                          <CornerMark position="-bottom-[4px] -left-[4px] -rotate-90" color={tone.ring} />
                         </button>
-                      ) : null,
-                    )}
+                      );
+                    })}
                   </div>
                 )}
               </div>
