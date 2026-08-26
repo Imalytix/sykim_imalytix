@@ -3,6 +3,7 @@ import type { UsageInfo, VisionResult } from "@/types/analysis";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
 import { classifyProviderError } from "./errorMessage";
+import { visionBudgetMs, withDeadline } from "./deadline";
 import { estimateCostUsd } from "./pricing";
 
 type AnthropicImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
@@ -26,35 +27,42 @@ export async function analyzeWithClaude(
   const imageType = await detectImageType(imageBuffer);
   const prompt = buildPrompt(promptType, imageType, "claude");
 
+  // SDK 타임아웃도 비전 예산 아래로 묶는다 — 기본 60초는 함수 예산과 똑같아서
+  // 실패를 JSON으로 돌려줄 여유가 0이었다(deadline.ts 참고).
+  const budgetMs = visionBudgetMs();
   const client = new Anthropic({
     apiKey,
-    timeout: Number(process.env.REQUEST_TIMEOUT_SECONDS || 60) * 1000,
+    timeout: Math.min(Number(process.env.REQUEST_TIMEOUT_SECONDS || 60) * 1000, budgetMs),
   });
 
   const startedAt = Date.now();
   let text = "";
   let usage: UsageInfo | null = null;
   try {
-    const response = await client.messages.create({
-      model: modelName,
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType as AnthropicImageMediaType,
-                data: imageBuffer.toString("base64"),
+    const response = await withDeadline(
+      client.messages.create({
+        model: modelName,
+        max_tokens: 2048,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mimeType as AnthropicImageMediaType,
+                  data: imageBuffer.toString("base64"),
+                },
               },
-            },
-            { type: "text", text: prompt },
-          ],
-        },
-      ],
-    });
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+      }),
+      budgetMs,
+      "Claude",
+    );
     const firstBlock = response.content[0];
     text = firstBlock && firstBlock.type === "text" ? firstBlock.text : "";
     const inputTokens = response.usage?.input_tokens ?? null;

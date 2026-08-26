@@ -69,10 +69,26 @@ async function analyzeImageFile(file: File): Promise<AnalysisResult> {
   // 전에 플랫폼 레벨에서 JSON이 아닌 응답(예: "Request Entity Too Large")을
   // 돌려줄 수 있음 — response.json()이 그대로 SyntaxError를 던지면 사용자가
   // 원인 모를 파싱 에러 문구를 그대로 보게 되므로 안전하게 처리.
-  const data = await response.json().catch(() => null);
+  // 본문을 text로 먼저 받는 이유: JSON 파싱에 실패했을 때 원문을 콘솔에 남겨야
+  // 원인을 좁힐 수 있다. response.json()으로 바로 받으면 그 원문이 사라진다.
+  const raw = await response.text();
+  let data: unknown = null;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    // JSON이 아닌 응답 — 아래에서 상태 코드로 안내한다.
+  }
+  const detail = typeof data === "object" && data !== null && "detail" in data ? String((data as { detail: unknown }).detail) : null;
+
   if (!response.ok) {
     if (response.status === 413) throw new Error("이미지 파일이 너무 큽니다. 더 작은 파일을 선택해주세요.");
-    throw new Error(data?.detail ?? "분석에 실패했습니다.");
+    // 라우트가 직접 낸 오류는 항상 detail을 담아 보낸다(요청 ID 포함).
+    if (detail) throw new Error(detail);
+    // 여기까지 왔다 = 우리 라우트가 아니라 그 앞단(플랫폼 에러 페이지, 함수
+    // 타임아웃, 게이트웨이 등)에서 끊긴 것. 예전에는 이 경우 원인을 좁힐 단서
+    // 없이 "분석에 실패했습니다."만 띄웠다 — 최소한 상태 코드는 남긴다.
+    console.error("[analyze] JSON이 아닌 오류 응답", response.status, raw.slice(0, 500));
+    throw new Error(`분석에 실패했습니다. (서버 응답 ${response.status})`);
   }
   if (!data) throw new Error("서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.");
   return data as AnalysisResult;

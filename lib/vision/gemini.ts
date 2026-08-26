@@ -3,6 +3,7 @@ import type { UsageInfo, VisionResult } from "@/types/analysis";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
 import { classifyProviderError } from "./errorMessage";
+import { visionBudgetMs, withDeadline } from "./deadline";
 import { estimateCostUsd } from "./pricing";
 
 export async function analyzeWithGemini(
@@ -30,20 +31,26 @@ export async function analyzeWithGemini(
   let text = "";
   let usage: UsageInfo | null = null;
   try {
-    const response = await client.models.generateContent({
-      model: modelName,
-      contents: [createPartFromText(prompt), createPartFromBase64(imageBuffer.toString("base64"), mimeType)],
-      config: {
-        temperature: 0.1,
-        maxOutputTokens: 2048,
-        // Gemini 2.5 is a "thinking" model — without this, it can spend the
-        // entire maxOutputTokens budget on invisible reasoning tokens before
-        // writing any of the visible JSON answer, so the response gets cut
-        // off mid-object and fails to parse. Matches the original Python
-        // pipeline's thinking_budget=0 setting.
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    });
+    // GoogleGenAI 클라이언트에는 타임아웃 옵션이 없어서, 걸린 호출이 함수
+    // 예산(maxDuration)까지 그대로 끌고 갈 수 있었다 — deadline.ts 참고.
+    const response = await withDeadline(
+      client.models.generateContent({
+        model: modelName,
+        contents: [createPartFromText(prompt), createPartFromBase64(imageBuffer.toString("base64"), mimeType)],
+        config: {
+          temperature: 0.1,
+          maxOutputTokens: 2048,
+          // Gemini 2.5 is a "thinking" model — without this, it can spend the
+          // entire maxOutputTokens budget on invisible reasoning tokens before
+          // writing any of the visible JSON answer, so the response gets cut
+          // off mid-object and fails to parse. Matches the original Python
+          // pipeline's thinking_budget=0 setting.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+      visionBudgetMs(),
+      "Gemini",
+    );
     text = response.text ?? "";
     const inputTokens = response.usageMetadata?.promptTokenCount ?? null;
     const outputTokens = response.usageMetadata?.candidatesTokenCount ?? null;
