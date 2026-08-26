@@ -57,11 +57,39 @@ export async function GET() {
     sharpRuntime = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   }
 
+  // Lambda 파일시스템에 @img 패키지들이 실제로 들어와 있는지 — "설치가 안 됐다"와
+  // "번들에 안 실렸다"를 구분하는 결정적 정보다. 둘은 원인도 해법도 다르다.
+  const fsReport: Record<string, string[] | string> = {};
+  const { readdirSync, existsSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  for (const base of [process.cwd(), "/var/task", join(process.cwd(), ".next/standalone")]) {
+    const dir = join(base, "node_modules", "@img");
+    try {
+      if (!existsSync(dir)) {
+        fsReport[dir] = "(없음)";
+        continue;
+      }
+      // 각 @img 패키지 안에 실제 바이너리(.node/.so)가 있는지까지 확인 —
+      // 디렉터리만 있고 알맹이가 없는 경우가 바로 이번 증상이다.
+      fsReport[dir] = readdirSync(dir).map((pkg) => {
+        const libDir = join(dir, pkg, "lib");
+        if (!existsSync(libDir)) return `${pkg} (lib 없음)`;
+        return `${pkg}/lib: ${readdirSync(libDir).join(", ") || "(빔)"}`;
+      });
+    } catch (error) {
+      fsReport[dir] = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   return NextResponse.json({
+    // 이 값이 바뀌어 보이면 최신 커밋이 실제로 배포된 것 — 배포 지연과 수정
+    // 실패를 구분하기 위한 표식.
+    marker: "tracing-includes-v1",
     platform: process.platform,
     arch: process.arch,
     node: process.version,
     checks,
     sharpRuntime,
+    fsReport,
   });
 }
