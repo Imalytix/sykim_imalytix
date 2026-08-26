@@ -6,9 +6,12 @@ import { recordVerification } from "@/lib/db/verification";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { corsPreflightResponse, withExtensionCors } from "@/lib/net/cors";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
+import { visionBudgetMs } from "@/lib/vision/deadline";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 상세한 이유는 app/api/analyze/image/route.ts의 같은 자리 주석 참고 —
+// 상한을 넘는 maxDuration은 함수를 통째로 서빙 불가 상태로 만든다.
+export const maxDuration = 10;
 
 const VALID_MODES: AnalysisMode[] = ["quick", "standard", "deep"];
 
@@ -89,7 +92,9 @@ async function handlePost(request: NextRequest): Promise<NextResponse> {
 
   const mode: AnalysisMode = VALID_MODES.includes(body.mode as AnalysisMode) ? (body.mode as AnalysisMode) : "standard";
   const maxBytes = Number(process.env.MAX_FILE_SIZE_MB || 10) * 1024 * 1024;
-  const timeoutMs = Number(process.env.REQUEST_TIMEOUT_SECONDS || 60) * 1000;
+  // 이미지 내려받기도 함수 예산(maxDuration) 안에 들어와야 한다 — 기본 60초는
+  // 예산의 여섯 배라, 느린 원본 URL 하나가 분석은 시작도 못 한 채 함수를 태워버렸다.
+  const timeoutMs = Math.min(Number(process.env.REQUEST_TIMEOUT_SECONDS || 60) * 1000, visionBudgetMs());
 
   try {
     const downloaded = await safeFetchImage(imageUrl, maxBytes, timeoutMs);

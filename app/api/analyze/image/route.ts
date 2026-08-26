@@ -6,7 +6,16 @@ import { checkRateLimit } from "@/lib/security/rateLimit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 60이 아니라 10인 이유: Vercel은 플랜/설정이 허용하는 상한을 넘는 maxDuration을
+// 가진 함수를 아예 서빙하지 않는다. 그러면 그 라우트로 오는 모든 요청이 메서드와
+// 무관하게 정적 /500 페이지로 떨어진다(X-Matched-Path: /500, Allow 헤더 없음) —
+// 함수가 호출조차 되지 않으니 우리 try/catch도 못 돌고, 클라이언트에는 원인 없는
+// "분석에 실패했습니다."만 남는다. maxDuration을 안 붙인 /api/health와
+// /api/feedback은 멀쩡했고, 60을 붙인 이 라우트와 image-url만 죽어 있었다.
+// Fluid Compute가 꺼진 Hobby의 상한이 10초라 어느 설정에서도 유효한 값으로 낮춘다.
+// Fluid Compute를 켜면 60까지 올릴 수 있고, 그때 VISION_BUDGET_SECONDS도 같이 올릴 것.
+// maxDuration은 정적 리터럴이어야 해서(빌드 타임 분석) 환경변수로 뺄 수 없다.
+export const maxDuration = 10;
 
 const VALID_MODES: AnalysisMode[] = ["quick", "standard", "deep"];
 

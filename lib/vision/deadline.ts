@@ -19,11 +19,16 @@
  * 파이프라인이 다루는 상황 — API 키 미설정과 같은 경로).
  */
 
-/** 비전 단계에 허용하는 총 시간(ms). 기본 40초 = maxDuration 60초에서 전처리
- *  (sharp 디코드/리사이즈), 중복 검사, 저장·기록에 쓸 20초를 남긴 값. */
+/** 비전 단계에 허용하는 총 시간(ms). 기본 7초 = 라우트의 maxDuration 10초에서
+ *  전처리(sharp 디코드/리사이즈), 중복 검사, 저장·기록에 쓸 3초를 남긴 값.
+ *
+ *  maxDuration이 10인 이유는 라우트 파일 주석 참고 — 상한을 넘는 값은 함수를
+ *  통째로 서빙 불가로 만든다. Vercel에서 Fluid Compute를 켜서 maxDuration을 60으로
+ *  올렸다면, 여기도 VISION_BUDGET_SECONDS=40 정도로 함께 올려야 제공자들이 응답할
+ *  시간을 갖는다(둘 중 하나만 올리면 의미가 없다). */
 export function visionBudgetMs(): number {
-  const seconds = Number(process.env.VISION_BUDGET_SECONDS || 40);
-  return (Number.isFinite(seconds) && seconds > 0 ? seconds : 40) * 1000;
+  const seconds = Number(process.env.VISION_BUDGET_SECONDS || 7);
+  return (Number.isFinite(seconds) && seconds > 0 ? seconds : 7) * 1000;
 }
 
 /**
