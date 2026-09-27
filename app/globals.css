@@ -50,9 +50,9 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   /* Inter가 1순위라 라틴 문자·숫자는 전부 Inter로 그려지고, Inter에 없는 한글
-     글리프만 Pretendard로 떨어진다. Pretendard는 Inter를 기반으로 설계된 서체라
-     같은 font-weight 값에서 한글과 라틴의 획 두께가 맞아 굵기 보정이 따로 필요 없다. */
-  --font-sans: var(--font-inter), "Pretendard", -apple-system, "Segoe UI", sans-serif;
+     글리프만 SUIT로 떨어진다. SUIT는 100–900 아홉 굵기를 모두 갖추고 있어
+     코드에서 쓰는 500/600/700/800이 한글에서도 원본 굵기로 그려진다. */
+  --font-sans: var(--font-inter), "SUIT", -apple-system, "Segoe UI", sans-serif;
 }
 
 body {

@@ -36,13 +36,14 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
       <head>
-        {/* Pretendard — fallback for Hangul only. Inter is first in the font
-            stack in globals.css, so Latin/numbers render in Inter and only
-            glyphs Inter lacks (Korean) fall through to Pretendard. Not on
-            Google Fonts, so loaded from jsDelivr like the design mockup did. */}
+        {/* SUIT — fallback for Hangul only. Inter is first in the font stack
+            in globals.css, so Latin/numbers render in Inter and only glyphs
+            Inter lacks (Korean) fall through to SUIT. Not on Google Fonts, so
+            loaded from jsDelivr. The static build is used so browsers fetch
+            only the weights a page actually renders. */}
         <link
           rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/static/pretendard.css"
+          href="https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2.0.5/fonts/static/woff2/SUIT.css"
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#0a0a0c] text-[#f4f4f6]">
