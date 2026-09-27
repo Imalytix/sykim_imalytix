@@ -620,8 +620,7 @@ export default function Home() {
                 <p className="mt-4 whitespace-pre-line break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-[20px]">
                   {localized(
                     locale,
-                    "Imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 분석 기법으로 검증하고,
-결과와 판단 근거를 제공하는 이미지 검증 서비스입니다.",
+                    "Imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 분석 기법으로 검증하고,\n결과와 판단 근거를 제공하는 이미지 검증 서비스입니다.",
                     "Imalytix verifies whether images may be AI-generated or manipulated using multiple analysis methods, then provides results and supporting evidence.",
                   )}
                 </p>
@@ -673,8 +672,7 @@ export default function Home() {
               <div ref={verifyHeadRef} className="max-w-lg px-6 sm:max-w-2xl">
                 <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">{localized(locale, "결과만이 아닌, 판단 근거까지 제공합니다.", "More than a result: we provide the evidence behind it.")}</h2>
                 <p className="mt-4 whitespace-pre-line break-keep text-sm leading-relaxed text-[#9a9aa4] sm:text-[20px]">
-                  {localized(locale, "AI 생성 가능성과 다양한 분석 결과를 함께 확인하여,
-결과를 더 쉽게 이해하고 판단할 수 있습니다.", "Review AI-generation likelihood alongside multiple analysis results to understand and assess each result more easily.")}
+                  {localized(locale, "AI 생성 가능성과 다양한 분석 결과를 함께 확인하여,\n결과를 더 쉽게 이해하고 판단할 수 있습니다.", "Review AI-generation likelihood alongside multiple analysis results to understand and assess each result more easily.")}
                 </p>
               </div>
 
@@ -779,8 +777,7 @@ export default function Home() {
             <section className="mt-10 text-center">
               <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">{localized(locale, "이미지를 믿기 어려운 AI 시대", "An era when images are harder to trust")}</h2>
               <p className="mx-auto mt-4 max-w-lg whitespace-pre-line break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-[20px]">
-                {localized(locale, "이제 AI는 실제와 구분하기 어려운 이미지를 만들어냅니다.
-중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.", "AI can now create images that are difficult to distinguish from reality. Important images should be verified, not judged by sight alone.")}
+                {localized(locale, "이제 AI는 실제와 구분하기 어려운 이미지를 만들어냅니다.\n중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.", "AI can now create images that are difficult to distinguish from reality. Important images should be verified, not judged by sight alone.")}
               </p>
               <div className="marquee-viewport mt-10 overflow-hidden py-2">
                 {/* 카드 목록을 통째로 두 번 이어붙여서 -50%까지 흘러가면 이음매 없이 반복 */}
@@ -797,8 +794,7 @@ export default function Home() {
             <section id="tech" className="mt-24 rounded-3xl border border-white/8 bg-white/[0.02] px-6 py-16 text-center">
               <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">{localized(locale, "국내외 AI 전문가의 자문을 바탕으로 설계했습니다.", "Designed with input from AI experts in Korea and abroad.")}</h2>
               <p className="mx-auto mt-4 max-w-xl whitespace-pre-line break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-[20px]">
-                {localized(locale, "탐지 모델 구조와 검증 방식은 KAIST 연구실, KT 임직원과
-해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.", "Our detection models and verification methods were designed with input from KAIST researchers, KT professionals, and ML engineers at leading universities abroad.")}
+                {localized(locale, "탐지 모델 구조와 검증 방식은 KAIST 연구실, KT 임직원과\n해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.", "Our detection models and verification methods were designed with input from KAIST researchers, KT professionals, and ML engineers at leading universities abroad.")}
               </p>
               <div
                 ref={techGridRef}
