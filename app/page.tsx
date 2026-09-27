@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FileCheck2, Layers, ScanEye, X } from "lucide-react";
+import { FileCheck2, Layers, ScanEye, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AnalysisStepsLoader from "@/components/results/AnalysisStepsLoader";
 import AnalysisResultView from "@/components/results/AnalysisResultView";
@@ -137,7 +137,6 @@ export default function Home() {
   const ringRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const heroCenterRef = useRef<HTMLDivElement | null>(null);
-  const heroHintRef = useRef<HTMLDivElement | null>(null);
   const flyCardRef = useRef<HTMLDivElement | null>(null);
 
   const verifySectionRef = useRef<HTMLElement | null>(null);
@@ -171,7 +170,6 @@ export default function Home() {
     if (!hero || !verify || !ring || !heroCard || !flyCard || !dropZone || !dropImg || !resultPanel) return;
 
     const heroCenter = heroCenterRef.current;
-    const heroHint = heroHintRef.current;
     const verifyHead = verifyHeadRef.current;
     const gaugeCircle = gaugeCircleRef.current;
     const gaugeNum = gaugeNumRef.current;
@@ -373,7 +371,6 @@ export default function Home() {
         heroCenter.style.transform = `scale(${1 - out * 0.14}) translateY(${-out * 40}px)`;
         heroCenter.style.opacity = String(1 - out);
       }
-      if (heroHint) heroHint.style.opacity = String(1 - norm(fp, 0, 0.2));
     }
 
     function renderVerify() {
@@ -659,11 +656,6 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-
-              <div ref={heroHintRef} className="hero-hint">
-                <span>Scroll</span>
-                <ChevronDown className="h-3.5 w-3.5" />
-              </div>
             </div>
           </section>
 
@@ -734,8 +726,11 @@ export default function Home() {
                         {localized(locale, "핵심 결과", "Key findings")}
                       </div>
                       <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
-                        {demoSignals.map((sig) => (
-                          <div key={sig.title} data-reveal className="flex items-start gap-2 rounded-xl border border-black/8 bg-[#fafafa] px-3 py-2.5 opacity-0">
+                        {/* key를 인덱스로 둔다: 문구(title)를 key로 쓰면 언어 전환 때
+                            React가 행을 새로 만들고, 스크롤 효과가 처음에 잡아 둔
+                            [data-reveal] 목록에서 빠져 opacity-0인 채로 남는다. */}
+                        {demoSignals.map((sig, i) => (
+                          <div key={i} data-reveal className="flex items-start gap-2 rounded-xl border border-black/8 bg-[#fafafa] px-3 py-2.5 opacity-0">
                             <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-black/15 text-[#9a9aa4]">
                               <X className="h-2.5 w-2.5" strokeWidth={3} />
                             </span>
