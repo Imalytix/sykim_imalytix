@@ -13,9 +13,14 @@ const GA_MEASUREMENT_ID = "G-HZ7HBTKM6V";
 // 로드한다. `next dev`에서는 GA 스크립트 자체가 안 나간다.
 const gaEnabled = process.env.NODE_ENV === "production";
 
+// 가변 폰트로 로드되므로 weight를 지정하지 않으면 100–900 전 구간이 한 파일에
+// 들어온다(코드에서 쓰는 500/600/700/800 모두 원본 굵기로 렌더링, 가짜 볼드 없음).
+// opsz 축은 글자 크기에 맞춰 획 대비·자간을 자동 조정해, 큰 헤드라인은 더 날렵하게,
+// 작은 본문은 더 또렷하게 그려 준다.
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  axes: ["opsz"],
 });
 
 export const metadata: Metadata = {
@@ -31,10 +36,10 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
       <head>
-        {/* Pretendard — Korean UI typeface used across the design (no Latin
-            glyphs; Inter above covers numbers/Latin text and is listed second
-            in the font stack in globals.css). Not on Google Fonts, so loaded
-            from jsDelivr like the design mockup did. */}
+        {/* Pretendard — fallback for Hangul only. Inter is first in the font
+            stack in globals.css, so Latin/numbers render in Inter and only
+            glyphs Inter lacks (Korean) fall through to Pretendard. Not on
+            Google Fonts, so loaded from jsDelivr like the design mockup did. */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/static/pretendard.css"
