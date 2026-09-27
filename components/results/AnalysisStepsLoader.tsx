@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { localized, useLanguage } from "@/components/layout/LanguageProvider";
 
 interface AnalysisStepsLoaderProps {
   active: boolean;
@@ -11,13 +12,10 @@ interface AnalysisStepsLoaderProps {
 }
 
 // 디자인 요청: 검증이 끝날 때까지 아래 5개 문장이 2초 간격으로 순환 표시됨.
-const STEPS = [
-  "이미지 정보를 읽는 중..",
-  "질감과 패턴을 분석하는 중..",
-  "생성 흔적을 찾는 중..",
-  "비슷한 이미지를 찾는 중..",
-  "분석 결과를 종합하는 중..",
-];
+const STEPS = {
+  ko: ["이미지 정보를 읽는 중..", "질감과 패턴을 분석하는 중..", "생성 흔적을 찾는 중..", "비슷한 이미지를 찾는 중..", "분석 결과를 종합하는 중.."],
+  en: ["Reading image information..", "Analyzing textures and patterns..", "Looking for generation artifacts..", "Searching for similar images..", "Combining analysis results.."],
+};
 const STEP_INTERVAL_MS = 2000;
 
 // 실제 백엔드에서 단계별 진행 이벤트를 받는 게 아니라 분석 요청 하나를 그냥
@@ -27,6 +25,8 @@ const PROGRESS_EASE_MS = 6000;
 const PROGRESS_CAP = 0.92;
 
 export default function AnalysisStepsLoader({ active, previewUrl }: AnalysisStepsLoaderProps) {
+  const { locale } = useLanguage();
+  const steps = STEPS[locale];
   const [elapsedMs, setElapsedMs] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -42,9 +42,9 @@ export default function AnalysisStepsLoader({ active, previewUrl }: AnalysisStep
 
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => setStepIndex((i) => (i + 1) % STEPS.length), STEP_INTERVAL_MS);
+    const timer = setInterval(() => setStepIndex((i) => (i + 1) % steps.length), STEP_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [active, steps.length]);
 
   if (!active) return null;
 
@@ -71,15 +71,15 @@ export default function AnalysisStepsLoader({ active, previewUrl }: AnalysisStep
           )}
         </div>
 
-        <p className="mt-6 text-[17px] font-bold text-[#f4f4f6]">이미지를 검증하고 있습니다</p>
+        <p className="mt-6 text-[17px] font-bold text-[#f4f4f6]">{localized(locale, "이미지를 검증하고 있습니다", "Verifying your image")}</p>
 
         <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
           <div className="h-full rounded-full bg-[#52bdff] transition-[width] duration-300 ease-out" style={{ width: `${progressPercent}%` }} />
         </div>
-        <p className="mt-2.5 text-sm text-[#9a9aa4]">{STEPS[stepIndex]}</p>
+        <p className="mt-2.5 text-sm text-[#9a9aa4]">{steps[stepIndex]}</p>
 
         <div className="mt-5 rounded-full border border-white/12 bg-white/5 px-4 py-1.5 font-[family-name:var(--font-inter)] text-sm font-semibold tabular-nums text-[#60a5fa]">
-          {elapsedSeconds}초 경과
+          {locale === "ko" ? `${elapsedSeconds}초 경과` : `${elapsedSeconds}s elapsed`}
         </div>
       </div>
     </div>

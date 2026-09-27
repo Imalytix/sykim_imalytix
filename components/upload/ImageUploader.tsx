@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { localized, useLanguage } from "@/components/layout/LanguageProvider";
 
 // Kept in sync with the server-side MAX_FILE_SIZE_MB default (see
 // app/api/analyze/image/route.ts) — this is a UX shortcut only, not a
@@ -37,6 +38,7 @@ function fileToDataUrl(file: File): Promise<string> {
  *  the design reference's hero upload card (icon + label, no separate
  *  camera/file-picker buttons) rather than the earlier dashed dropzone. */
 export default function ImageUploader({ previewUrl, fileName, onFileSelected, onError }: ImageUploaderProps) {
+  const { locale } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -82,7 +84,7 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected, on
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5">
               <Upload className="h-5 w-5" />
             </span>
-            <span className="text-sm font-semibold">Upload</span>
+            <span className="text-sm font-semibold">{localized(locale, "업로드", "Upload")}</span>
           </>
         )}
       </button>

@@ -7,6 +7,7 @@ import AnalysisResultView from "@/components/results/AnalysisResultView";
 import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
+import { localized, useLanguage } from "@/components/layout/LanguageProvider";
 import { trackVerificationComplete, trackVerificationStart, verdictFromProbability } from "@/lib/analytics/gtag";
 import type { AnalysisResult } from "@/types/analysis";
 
@@ -102,6 +103,21 @@ async function analyzeImageFile(file: File): Promise<{ result: AnalysisResult; l
 }
 
 export default function Home() {
+  const { locale } = useLanguage();
+  const useCases = locale === "ko" ? USE_CASES : [
+    { tag: "Dating apps", img: "/use-cases/dating.png" }, { tag: "Secondhand sales", img: "/use-cases/secondhand.png" },
+    { tag: "Food reviews", img: "/use-cases/food.png" }, { tag: "Property listings", img: "/use-cases/housing.png" }, { tag: "Social media", img: "/use-cases/sns.png" },
+  ];
+  const demoSignals = locale === "ko" ? DEMO_SIGNALS : [
+    { title: "No camera information was found.", desc: "No record of capture by a camera remains." },
+    { title: "No creation history was found.", desc: "No C2PA creation or editing record remains." },
+    { title: "Multiple AI-like characteristics were found.", desc: "Textures and patterns resemble those often found in AI-generated images." },
+  ];
+  const tech = locale === "ko" ? TECH : [
+    { icon: <Layers className="h-5 w-5" />, title: "Fusion Engine", desc: "Combines results from multiple AI models to offset the limits of relying on only one." },
+    { icon: <ScanEye className="h-5 w-5" />, title: "Multi-model Analysis", desc: "AI models with different perspectives examine images side by side." },
+    { icon: <FileCheck2 className="h-5 w-5" />, title: "Explainable Results", desc: "Provides supporting evidence so you can understand and assess each result." },
+  ];
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -587,14 +603,14 @@ export default function Home() {
 
               <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center sm:max-w-4xl">
                 <h1 className="break-keep text-[34px] font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-[44px]">
-                  더 확실한 판단을 위한 이미지 검증
+                  {localized(locale, "더 확실한 판단을 위한 이미지 검증", "Image verification for more confident decisions")}
                 </h1>
                 <p className="mt-4 break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-[20px]">
-                  Imalytix는 AI 생성 여부와 이미지 조작 가능성을{" "}
-                  <br className="sm:hidden" />
-                  다양한 분석 기법으로 검증하고,{" "}
-                  <br className="hidden sm:block" />
-                  결과와 판단 근거를 제공하는 이미지 검증 서비스입니다.
+                  {localized(
+                    locale,
+                    "Imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 분석 기법으로 검증하고, 결과와 판단 근거를 제공하는 이미지 검증 서비스입니다.",
+                    "Imalytix verifies whether images may be AI-generated or manipulated using multiple analysis methods, then provides results and supporting evidence.",
+                  )}
                 </p>
 
                 <div className="mt-10 flex flex-col items-center gap-4">
@@ -620,7 +636,7 @@ export default function Home() {
                     onClick={() => handleAnalyze()}
                     className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)]"
                   >
-                    이미지 검증하기
+                    {localized(locale, "이미지 검증하기", "Verify image")}
                   </button>
                 </div>
               </div>
@@ -642,11 +658,9 @@ export default function Home() {
           <section ref={verifySectionRef} className="verify-pin">
             <div className="verify-pin__sticky">
               <div ref={verifyHeadRef} className="max-w-lg px-6 sm:max-w-2xl">
-                <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">결과만이 아닌, 판단 근거까지 제공합니다.</h2>
+                <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">{localized(locale, "결과만이 아닌, 판단 근거까지 제공합니다.", "More than a result: we provide the evidence behind it.")}</h2>
                 <p className="mt-4 break-keep text-sm leading-relaxed text-[#9a9aa4] sm:text-[20px]">
-                  AI 생성 가능성과 다양한 분석 결과를 함께 확인하여,{" "}
-                  <br className="hidden sm:block" />
-                  결과를 더 쉽게 이해하고 판단할 수 있습니다.
+                  {localized(locale, "AI 생성 가능성과 다양한 분석 결과를 함께 확인하여, 결과를 더 쉽게 이해하고 판단할 수 있습니다.", "Review AI-generation likelihood alongside multiple analysis results to understand and assess each result more easily.")}
                 </p>
               </div>
 
@@ -672,8 +686,8 @@ export default function Home() {
                         {/* eslint-disable-next-line @next/next/no-img-element -- 스크롤 연출용 고정 썸네일, next/image 이점 없음 */}
                         <img src={ARCH_PHOTOS[0]} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
                         <div className="min-w-0">
-                          <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">이 이미지를 분석했습니다.</div>
-                          <div className="text-[11px] text-[#8a8a8a]">방금 전</div>
+                          <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">{localized(locale, "이 이미지를 분석했습니다.", "This image was analyzed.")}</div>
+                          <div className="text-[11px] text-[#8a8a8a]">{localized(locale, "방금 전", "Just now")}</div>
                         </div>
                       </div>
                       <div className="flex flex-col items-center gap-3 px-4 py-6">
@@ -683,25 +697,25 @@ export default function Home() {
                           style={{ background: "conic-gradient(#f23e3e 0deg, #f2f2f2 0deg)" }}
                         >
                           <div className="absolute inset-[7px] flex flex-col items-center justify-center gap-0.5 rounded-full bg-white text-center">
-                            <span className="text-[9px] font-semibold leading-none text-[#9a9aa4]">AI 생성 가능성</span>
+                            <span className="text-[9px] font-semibold leading-none text-[#9a9aa4]">{localized(locale, "AI 생성 가능성", "AI likelihood")}</span>
                             <span ref={gaugeNumRef} className="text-xl font-extrabold leading-none">
                               0%
                             </span>
                           </div>
                         </div>
                         <span ref={badgeRef} className="rounded-full bg-[#f23e3e] px-3 py-1 text-[11px] font-bold text-white opacity-0 transition-opacity duration-300">
-                          높음
+                          {localized(locale, "높음", "High")}
                         </span>
                         <p ref={descRef} className="mt-0.5 text-[12px] text-[#7a7a7a] opacity-0 transition-opacity duration-300">
-                          AI 생성 이미지일 가능성이 높습니다.
+                          {localized(locale, "AI 생성 이미지일 가능성이 높습니다.", "This image is likely AI-generated.")}
                         </p>
                       </div>
                       {/* ── 여기서부터가 스크롤로 넘어오는 상세 파트 ── */}
                       <div data-reveal className="border-t border-black/6 px-4 pt-3 text-[12px] font-extrabold opacity-0">
-                        핵심 결과
+                        {localized(locale, "핵심 결과", "Key findings")}
                       </div>
                       <div className="flex flex-col gap-2 px-4 pb-4 pt-2">
-                        {DEMO_SIGNALS.map((sig) => (
+                        {demoSignals.map((sig) => (
                           <div key={sig.title} data-reveal className="flex items-start gap-2 rounded-xl border border-black/8 bg-[#fafafa] px-3 py-2.5 opacity-0">
                             <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-black/15 text-[#9a9aa4]">
                               <X className="h-2.5 w-2.5" strokeWidth={3} />
@@ -713,13 +727,13 @@ export default function Home() {
                           </div>
                         ))}
                         <div data-reveal className="rounded-xl border border-[#52bdff]/60 bg-[#52bdff]/[0.06] px-3 py-3 opacity-0">
-                          <div className="break-keep text-[12px] font-bold">이 이미지를 어떻게 해석하면 좋을까요?</div>
+                          <div className="break-keep text-[12px] font-bold">{localized(locale, "이 이미지를 어떻게 해석하면 좋을까요?", "How should you interpret this image?")}</div>
                           <p className="mt-1 break-keep text-[11px] leading-relaxed text-[#6b6b76]">
-                            여러 분석 신호에서 AI 생성과 유사한 특징이 확인되었습니다. 중요한 의사결정에 활용하기 전에는 원본 출처와 다른 정보도 함께 확인하는 것을 권장합니다.
+                            {localized(locale, "여러 분석 신호에서 AI 생성과 유사한 특징이 확인되었습니다. 중요한 의사결정에 활용하기 전에는 원본 출처와 다른 정보도 함께 확인하는 것을 권장합니다.", "Several signals resemble AI-generated content. Before making an important decision, also verify the original source and other information.")}
                           </p>
                         </div>
                         {/* 목업의 CTA를 그대로 그린 연출용 요소 — 실제로 누르는 버튼이 아니라 <div> */}
-                        <div data-reveal className="rounded-xl bg-[#52bdff] py-2.5 text-center text-[12px] font-bold text-white opacity-0">자세한 분석 보기</div>
+                        <div data-reveal className="rounded-xl bg-[#52bdff] py-2.5 text-center text-[12px] font-bold text-white opacity-0">{localized(locale, "자세한 분석 보기", "View detailed analysis")}</div>
                       </div>
                     </div>
                     {/* 아래에 더 있다는 힌트 — 바닥까지 굴러가면 걷힌다 */}
@@ -749,16 +763,14 @@ export default function Home() {
           <>
             {/* 이런 상황에서 쓰세요 — 좌측으로 계속 흘러가는 카드 행 */}
             <section className="mt-10 text-center">
-              <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">이미지를 믿기 어려운 AI 시대</h2>
+              <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">{localized(locale, "이미지를 믿기 어려운 AI 시대", "An era when images are harder to trust")}</h2>
               <p className="mx-auto mt-4 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-[20px]">
-                이제 실제와 구분하기 어려운 이미지를 만들어냅니다.{" "}
-                <br className="hidden sm:block" />
-                중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.
+                {localized(locale, "이제 실제와 구분하기 어려운 이미지를 만들어냅니다. 중요한 이미지는 눈으로만 판단하기보다, 검증을 통해 확인해야 합니다.", "AI can now create images that are difficult to distinguish from reality. Important images should be verified, not judged by sight alone.")}
               </p>
               <div className="marquee-viewport mt-10 overflow-hidden py-2">
                 {/* 카드 목록을 통째로 두 번 이어붙여서 -50%까지 흘러가면 이음매 없이 반복 */}
                 <div ref={marqueeTrackRef} className="animate-marquee flex w-max gap-4">
-                  {[...USE_CASES, ...USE_CASES].map((uc, i) => (
+                  {[...useCases, ...useCases].map((uc, i) => (
                     // eslint-disable-next-line @next/next/no-img-element -- public/ 정적 디자인 에셋, next/image 이점 없음
                     <img key={`${uc.tag}-${i}`} src={uc.img} alt={uc.tag} className="h-[312px] w-[220px] shrink-0 rounded-2xl" />
                   ))}
@@ -768,11 +780,9 @@ export default function Home() {
 
             {/* 기술 신뢰도 */}
             <section id="tech" className="mt-24 rounded-3xl border border-white/8 bg-white/[0.02] px-6 py-16 text-center">
-              <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">국내외 AI 전문가의 자문을 바탕으로 설계했습니다.</h2>
+              <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">{localized(locale, "국내외 AI 전문가의 자문을 바탕으로 설계했습니다.", "Designed with input from AI experts in Korea and abroad.")}</h2>
               <p className="mx-auto mt-4 max-w-xl break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-2xl sm:text-[20px]">
-                탐지 모델 구조와 검증 방식은 KAIST 연구실, KT 임직원과{" "}
-                <br className="hidden sm:block" />
-                해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.
+                {localized(locale, "탐지 모델 구조와 검증 방식은 KAIST 연구실, KT 임직원과 해외 유명 대학 ML 엔지니어의 자문을 통해 설계되었습니다.", "Our detection models and verification methods were designed with input from KAIST researchers, KT professionals, and ML engineers at leading universities abroad.")}
               </p>
               <div
                 ref={techGridRef}
@@ -780,7 +790,7 @@ export default function Home() {
                   techVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
                 }`}
               >
-                {TECH.map((t) => (
+                {tech.map((t) => (
                   <div key={t.title} className="rounded-2xl border border-white/9 bg-white/[0.04] p-7 transition hover:border-[#52bdff]/40">
                     <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#52bdff]/15 text-[#52bdff]">{t.icon}</div>
                     <div className="text-[17px] font-extrabold text-[#f4f4f6]">{t.title}</div>
@@ -793,14 +803,10 @@ export default function Home() {
             {/* 익스텐션 홍보 — 참고 사이트(PART 5 · EXTENSION VIDEO)와 동일한 구성 */}
             <section className="mt-24 text-center">
               <h2 className="break-keep text-[22px] font-extrabold tracking-tight text-[#f4f4f6] sm:text-[36px]">
-                브라우저 익스텐션으로,{" "}
-                <br className="sm:hidden" />
-                보던 화면 그대로
+                {localized(locale, "브라우저 익스텐션으로, 보던 화면 그대로", "With the browser extension, verify what you are viewing")}
               </h2>
               <p className="mx-auto mt-4 max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:max-w-none sm:text-[20px]">
-                설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든{" "}
-                <br className="sm:hidden" />
-                우클릭으로 바로 검증할 수 있습니다.
+                {localized(locale, "설치 한 번이면 뉴스·SNS·쇼핑몰 어디서든 우클릭으로 바로 검증할 수 있습니다.", "Install once, then verify images from news, social media, or shopping sites with a right-click.")}
               </p>
               <div className="mx-auto mt-10 max-w-[860px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b21] shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
                 <video
@@ -823,7 +829,7 @@ export default function Home() {
                 rel="noopener noreferrer"
                 className="cta-shine mt-8 hidden rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)] sm:inline-block"
               >
-                <span>익스텐션 다운로드</span>
+                <span>{localized(locale, "익스텐션 다운로드", "Download extension")}</span>
               </a>
             </section>
           </>

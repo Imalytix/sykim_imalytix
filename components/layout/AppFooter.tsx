@@ -1,25 +1,29 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { localized, useLanguage } from "./LanguageProvider";
 
 /** Matches the design handoff's footer — contact block + disclaimer, a small
  *  page-link row (added for About/FAQ/Privacy discoverability — Chrome Web
  *  Store and Google OAuth consent both require a reachable privacy policy
  *  link), then the large logo lockup + copyright line. */
 export default function AppFooter() {
+  const { locale } = useLanguage();
   return (
     <footer className="border-t border-white/8 bg-black px-6 py-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-6 text-center sm:flex-row sm:items-start sm:justify-between sm:gap-20 sm:text-left">
           <div>
             <a href="mailto:imalytix@gmail.com" className="text-sm font-semibold text-white underline underline-offset-2">
-              문의하기
+              {localized(locale, "문의하기", "Contact")}
             </a>
             <div className="mt-1 text-sm text-[#9a9aa4]">imalytix@gmail.com</div>
           </div>
           <p className="max-w-lg break-keep text-sm leading-relaxed text-[#9a9aa4] sm:text-right">
-            Imalytix는 확률을 기반으로 결과를 제공합니다.{" "}
+            {localized(locale, "Imalytix는 확률 기반 분석 결과를 제공합니다.", "Imalytix provides probability-based analysis results.")}{" "}
             <br className="hidden sm:block" />
-            탐지 결과가 완벽하지 않을 수 있으니, 최종 판단은 신중히 내려 주시기 바랍니다.
+            {localized(locale, "결과가 완벽하지 않을 수 있으므로 최종 판단은 신중히 내려 주세요.", "Results may not be perfect; please use your own judgment.")}
           </p>
         </div>
 
@@ -27,16 +31,16 @@ export default function AppFooter() {
           {/* 일반 <a> 의도적 사용 — AppHeader.tsx의 로고/Home 링크와 같은 이유(홈에서 홈 클릭 시 풀 리로드로 상태 초기화) */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/" className="hover:text-white">
-            Home
+            {localized(locale, "홈", "Home")}
           </a>
           <Link href="/about" className="hover:text-white">
-            About us
+            {localized(locale, "소개", "About us")}
           </Link>
           <Link href="/faq" className="hover:text-white">
-            FAQ
+            {localized(locale, "자주 묻는 질문", "FAQ")}
           </Link>
           <Link href="/privacy" className="hover:text-white">
-            개인정보처리방침
+            {localized(locale, "개인정보 처리방침", "Privacy Policy")}
           </Link>
         </nav>
 

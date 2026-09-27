@@ -6,11 +6,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
+import LanguageToggle from "./LanguageToggle";
+import { localized, useLanguage } from "./LanguageProvider";
 
 /** GNB: logo, Home/About us/FAQ nav, and — depending on auth state — either
  *  "Sign in" (starts Google OAuth directly) + "Download", or "Logout" +
  *  "Download" on the right. */
 export default function AppHeader() {
+  const { locale } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [signInPending, setSignInPending] = useState(false);
 
@@ -68,17 +71,18 @@ export default function AppHeader() {
         <nav className="hidden items-center justify-self-center gap-8 sm:flex">
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- 의도적으로 풀 리로드 (위 주석 참고) */}
           <a href="/" className="text-sm font-bold text-white transition-opacity hover:opacity-80">
-            Home
+            {localized(locale, "홈", "Home")}
           </a>
           <Link href="/about" className="text-sm font-bold text-white transition-opacity hover:opacity-80">
-            About us
+            {localized(locale, "소개", "About us")}
           </Link>
           <Link href="/faq" className="text-sm font-bold text-white transition-opacity hover:opacity-80">
-            FAQ
+            {localized(locale, "자주 묻는 질문", "FAQ")}
           </Link>
         </nav>
 
         <div className="flex items-center justify-self-end gap-3">
+          <LanguageToggle />
           {user ? (
             <button type="button" onClick={handleSignOut} className="text-sm font-medium text-white transition-opacity hover:opacity-80">
               Logout
@@ -91,7 +95,7 @@ export default function AppHeader() {
               className="flex items-center gap-1.5 rounded-lg bg-[#696969] px-3 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               <UserRound className="h-3.5 w-3.5" />
-              {signInPending ? "이동 중…" : "Sign in"}
+              {signInPending ? localized(locale, "이동 중…", "Redirecting…") : localized(locale, "로그인", "Sign in")}
             </button>
           )}
           {user && (
@@ -105,7 +109,7 @@ export default function AppHeader() {
             rel="noopener noreferrer"
             className="hidden rounded-lg bg-[#52bdff] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:inline-block"
           >
-            Download
+            {localized(locale, "확장 프로그램", "Download")}
           </a>
         </div>
       </div>

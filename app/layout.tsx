@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { LanguageProvider } from "@/components/layout/LanguageProvider";
 
 // GA4 측정 ID. 페이지 소스에 그대로 노출되는 공개 식별자라 비밀값이 아니고,
 // 그래서 환경변수로 빼지 않았다 — Vercel에 설정할 항목이 하나 줄어든다.
@@ -40,6 +41,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[#0a0a0c] text-[#f4f4f6]">
+        <LanguageProvider>
         {children}
 
         {/* GA4 (gtag.js) — 구글이 준 스니펫을 next/script로 옮긴 것.
@@ -60,6 +62,7 @@ gtag('config', '${GA_MEASUREMENT_ID}');`}
             </Script>
           </>
         )}
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useLanguage } from "@/components/layout/LanguageProvider";
 
 interface ScoreGaugeProps {
   score: number;
@@ -12,13 +13,14 @@ interface ScoreGaugeProps {
 // "AI 탐지율 판단 기준" legend exactly: 0-35% 낮음, 36-64% 중간, 65-100% 높음.
 // Exported so other result-page elements (bounding boxes, key-finding icons)
 // can carry the same tier color instead of a fixed blue everywhere.
-export function toneForScore(score: number): { ring: string; track: string; badgeBg: string; badgeText: string; shortLabel: string } {
-  if (score >= 65) return { ring: "#f23e3e", track: "rgba(242,62,62,0.12)", badgeBg: "#f23e3e", badgeText: "#ffffff", shortLabel: "높음" };
-  if (score >= 36) return { ring: "#ffca1a", track: "rgba(255,202,26,0.16)", badgeBg: "#ffca1a", badgeText: "#1a1a1a", shortLabel: "중간" };
-  return { ring: "#52bdff", track: "rgba(82,189,255,0.14)", badgeBg: "#52bdff", badgeText: "#ffffff", shortLabel: "낮음" };
+export function toneForScore(score: number, locale: "ko" | "en" = "ko"): { ring: string; track: string; badgeBg: string; badgeText: string; shortLabel: string } {
+  if (score >= 65) return { ring: "#f23e3e", track: "rgba(242,62,62,0.12)", badgeBg: "#f23e3e", badgeText: "#ffffff", shortLabel: locale === "ko" ? "높음" : "High" };
+  if (score >= 36) return { ring: "#ffca1a", track: "rgba(255,202,26,0.16)", badgeBg: "#ffca1a", badgeText: "#1a1a1a", shortLabel: locale === "ko" ? "중간" : "Medium" };
+  return { ring: "#52bdff", track: "rgba(82,189,255,0.14)", badgeBg: "#52bdff", badgeText: "#ffffff", shortLabel: locale === "ko" ? "낮음" : "Low" };
 }
 
 export default function ScoreGauge({ score, size = 200 }: ScoreGaugeProps) {
+  const { locale } = useLanguage();
   const circleRef = useRef<SVGCircleElement | null>(null);
 
   // Design reference is a 120px viewBox gauge with r=52, stroke=9 — scale
@@ -29,7 +31,7 @@ export default function ScoreGauge({ score, size = 200 }: ScoreGaugeProps) {
   const center = size / 2;
   const clampedScore = Math.max(0, Math.min(100, score));
   const offset = circumference - (clampedScore / 100) * circumference;
-  const tone = toneForScore(clampedScore);
+  const tone = toneForScore(clampedScore, locale);
 
   useEffect(() => {
     const el = circleRef.current;
@@ -62,7 +64,7 @@ export default function ScoreGauge({ score, size = 200 }: ScoreGaugeProps) {
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-          <div className="text-[10px] text-[#7a7a7a]">AI 생성 가능성</div>
+          <div className="text-[10px] text-[#7a7a7a]">{locale === "ko" ? "AI 생성 가능성" : "AI likelihood"}</div>
           <div className="font-[family-name:var(--font-inter)] text-[36px] leading-none font-bold tracking-tight text-[#1a1a1a]">
             {clampedScore}%
           </div>
