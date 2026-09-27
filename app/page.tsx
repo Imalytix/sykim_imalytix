@@ -606,14 +606,14 @@ export default function Home() {
               <div className="hero-veil" aria-hidden="true" />
 
               <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center sm:max-w-4xl">
-                <h1 className="break-keep text-[34px] font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-[44px]">
+                <h1 className="break-keep text-[34px] leading-[1.2] font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-[44px]">
                   {locale === "ko" ? (
                     "더 확실한 판단을 위한 이미지 검증"
                   ) : (
                     <>
-                      Image verification for
+                      Image Verification For
                       <br />
-                      more confident decisions
+                      More Confident Decisions
                     </>
                   )}
                 </h1>
@@ -646,7 +646,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => handleAnalyze()}
-                    className="rounded-xl bg-[#52bdff] px-8 py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)]"
+                    className="w-[170px] rounded-xl bg-[#52bdff] py-3 text-sm font-bold tracking-tight text-white shadow-[0_10px_30px_rgba(82,189,255,0.175)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(82,189,255,0.35)]"
                   >
                     {localized(locale, "이미지 검증하기", "Verify image")}
                   </button>
