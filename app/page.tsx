@@ -607,7 +607,15 @@ export default function Home() {
 
               <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center sm:max-w-4xl">
                 <h1 className="break-keep text-[34px] font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-[44px]">
-                  {localized(locale, "더 확실한 판단을 위한 이미지 검증", "Image verification for more confident decisions")}
+                  {locale === "ko" ? (
+                    "더 확실한 판단을 위한 이미지 검증"
+                  ) : (
+                    <>
+                      Image verification for
+                      <br />
+                      more confident decisions
+                    </>
+                  )}
                 </h1>
                 <p className="mt-4 break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-[20px]">
                   {localized(
