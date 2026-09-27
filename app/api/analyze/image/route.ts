@@ -4,6 +4,14 @@ import { extractRequestContext } from "@/lib/net/requestContext";
 import { recordVerification } from "@/lib/db/verification";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
+import { t, type Locale } from "@/lib/i18n";
+
+// 클라이언트가 사용 중인 UI 언어 — formData가 아니라 헤더로 받는 이유: 레이트리밋/
+// 본문 크기 검사처럼 formData를 파싱하기 전에 실패하는 경로도 있어, 그 오류
+// 메시지까지 로케일을 맞추려면 파싱 전에 값을 알아야 한다.
+function readLocale(request: NextRequest): Locale {
+  return request.headers.get("x-locale") === "en" ? "en" : "ko";
+}
 
 export const runtime = "nodejs";
 // 비전 모델 3개를 병렬로 호출하므로 넉넉한 예산이 필요하다. 한때 이 값을 10으로
@@ -32,8 +40,15 @@ export async function POST(request: NextRequest) {
     return await handleAnalyzeImage(request, requestId);
   } catch (error) {
     console.error(`[api/analyze/image] unhandled failure ${requestId}`, error);
+    const locale = readLocale(request);
     return NextResponse.json(
-      { detail: `이미지 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (요청 ID: ${requestId})` },
+      {
+        detail: t(
+          locale,
+          `이미지 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (요청 ID: ${requestId})`,
+          `An error occurred while analyzing the image. Please try again shortly. (Request ID: ${requestId})`,
+        ),
+      },
       { status: 500 },
     );
   }
@@ -42,6 +57,7 @@ export async function POST(request: NextRequest) {
 async function handleAnalyzeImage(request: NextRequest, requestId: string) {
   const context = extractRequestContext(request);
   const startedAt = Date.now();
+  const locale = readLocale(request);
 
   // Analysis has never required an account and still doesn't — this is
   // just "attach the request to whoever's logged in, if anyone" so it can
@@ -66,7 +82,7 @@ async function handleAnalyzeImage(request: NextRequest, requestId: string) {
       errorMessage: `Rate limit 초과 (IP: ${context.ip ?? "unknown"}).`,
     });
     return NextResponse.json(
-      { detail: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+      { detail: t(locale, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", "Too many requests. Please try again shortly.") },
       { status: 429, headers: rateLimit.retryAfterSeconds ? { "Retry-After": String(rateLimit.retryAfterSeconds) } : undefined },
     );
   }
@@ -95,19 +111,19 @@ async function handleAnalyzeImage(request: NextRequest, requestId: string) {
       mode: "standard",
       errorMessage: `요청 본문이 너무 큽니다 (Content-Length ${(declaredLength / (1024 * 1024)).toFixed(1)}MB > ${maxMb}MB).`,
     });
-    return NextResponse.json({ detail: "이미지 파일이 너무 큽니다." }, { status: 413 });
+    return NextResponse.json({ detail: t(locale, "이미지 파일이 너무 큽니다.", "The image file is too large.") }, { status: 413 });
   }
 
   let formData: FormData;
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ detail: "multipart/form-data 요청이 필요합니다." }, { status: 400 });
+    return NextResponse.json({ detail: t(locale, "multipart/form-data 요청이 필요합니다.", "A multipart/form-data request is required.") }, { status: 400 });
   }
 
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ detail: "file이 필요합니다." }, { status: 400 });
+    return NextResponse.json({ detail: t(locale, "file이 필요합니다.", "A file is required.") }, { status: 400 });
   }
 
   // Cheap, spoofable pre-check (a renamed .exe passes this) — rejects the
@@ -117,7 +133,10 @@ async function handleAnalyzeImage(request: NextRequest, requestId: string) {
   const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
   const hasAllowedExtension = ALLOWED_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext));
   if (!hasAllowedExtension) {
-    return NextResponse.json({ detail: "지원하지 않는 파일 확장자입니다. JPG/PNG/WEBP 파일만 업로드해주세요." }, { status: 400 });
+    return NextResponse.json(
+      { detail: t(locale, "지원하지 않는 파일 확장자입니다. JPG/PNG/WEBP 파일만 업로드해주세요.", "Unsupported file extension. Please upload a JPG/PNG/WEBP file.") },
+      { status: 400 },
+    );
   }
 
   const modeRaw = formData.get("mode");
@@ -136,7 +155,7 @@ async function handleAnalyzeImage(request: NextRequest, requestId: string) {
       filename: file.name,
       errorMessage: `이미지 파일이 너무 큽니다 (${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(1)}MB > ${maxMb}MB).`,
     });
-    return NextResponse.json({ detail: "이미지 파일이 너무 큽니다." }, { status: 400 });
+    return NextResponse.json({ detail: t(locale, "이미지 파일이 너무 큽니다.", "The image file is too large.") }, { status: 400 });
   }
 
   try {
@@ -152,6 +171,7 @@ async function handleAnalyzeImage(request: NextRequest, requestId: string) {
       userId,
       context,
       startedAt,
+      locale,
     });
 
     return NextResponse.json(result);
@@ -192,7 +212,13 @@ async function handleAnalyzeImage(request: NextRequest, requestId: string) {
     });
 
     return NextResponse.json(
-      { detail: `이미지 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (요청 ID: ${requestId})` },
+      {
+        detail: t(
+          locale,
+          `이미지 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (요청 ID: ${requestId})`,
+          `An error occurred while analyzing the image. Please try again shortly. (Request ID: ${requestId})`,
+        ),
+      },
       { status: 500 },
     );
   }

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { UsageInfo, VisionResult } from "@/types/analysis";
+import type { Locale } from "@/lib/i18n";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
 import { classifyProviderError } from "./errorMessage";
@@ -12,6 +13,7 @@ export async function analyzeWithClaude(
   imageBuffer: Buffer,
   mimeType: string,
   promptType: PromptType,
+  locale: Locale = "ko",
 ): Promise<VisionResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const modelName = process.env.ANTHROPIC_VISION_MODEL || "claude-haiku-4-5-20251001";
@@ -25,7 +27,7 @@ export async function analyzeWithClaude(
   }
 
   const imageType = await detectImageType(imageBuffer);
-  const prompt = buildPrompt(promptType, imageType, "claude");
+  const prompt = buildPrompt(promptType, imageType, "claude", locale);
 
   // SDK 타임아웃도 비전 예산 아래로 묶는다 — 기본 60초는 함수 예산과 똑같아서
   // 실패를 JSON으로 돌려줄 여유가 0이었다(deadline.ts 참고).

@@ -1,6 +1,7 @@
 import { inflateSync } from "node:zlib";
 import * as exifr from "exifr";
 import type { CameraInfo, FileInfo, MetadataAnalysis } from "@/types/analysis";
+import { t, type Locale } from "@/lib/i18n";
 
 export const AI_SOFTWARE_KEYWORDS = [
   "midjourney",
@@ -211,9 +212,10 @@ export async function analyzeMetadata(
     /** Passed in from pipeline.ts's already-decoded sharp metadata rather
      *  than re-decoding the same bytes here a second time. */
     fileInfo: FileInfo;
+    locale?: Locale;
   },
 ): Promise<MetadataAnalysis> {
-  const { sourceUrl, isPng, fileInfo } = options;
+  const { sourceUrl, isPng, fileInfo, locale = "ko" } = options;
 
   let exifFound = false;
   let pngMetadataFound = false;
@@ -221,7 +223,7 @@ export async function analyzeMetadata(
   const detectedTools: string[] = [];
   const evidence: string[] = [];
   const limitations: string[] = [
-    "메타데이터는 수정 가능하므로 단독 판정 근거로 사용하지 않습니다.",
+    t(locale, "메타데이터는 수정 가능하므로 단독 판정 근거로 사용하지 않습니다.", "Metadata can be edited, so it is not used as sole grounds for a verdict."),
   ];
   const raw: Record<string, unknown> = {};
   let score = 0;
@@ -279,7 +281,9 @@ export async function analyzeMetadata(
       aiToolDetected = true;
       detectedTools.push(software);
       score += 35;
-      evidence.push(`EXIF Software 태그에서 ${software} 흔적이 확인되었습니다.`);
+      evidence.push(
+        t(locale, `EXIF Software 태그에서 ${software} 흔적이 확인되었습니다.`, `The EXIF Software tag shows signs of ${software}.`),
+      );
     }
   }
 
@@ -287,11 +291,23 @@ export async function analyzeMetadata(
     raw.make = make;
     raw.model = model;
     score -= 10;
-    evidence.push("카메라 Make/Model 정보가 확인되어 실제 촬영 가능성을 반영했습니다.");
+    evidence.push(
+      t(
+        locale,
+        "카메라 Make/Model 정보가 확인되어 실제 촬영 가능성을 반영했습니다.",
+        "Camera make/model information was found, which supports a real photo.",
+      ),
+    );
   }
   if ((make || model || lensModel) && lensModel) {
     score -= 15;
-    evidence.push("LensModel 등 촬영 정보가 확인되어 실제 카메라 사진의 가능성을 반영했습니다.");
+    evidence.push(
+      t(
+        locale,
+        "LensModel 등 촬영 정보가 확인되어 실제 카메라 사진의 가능성을 반영했습니다.",
+        "Lens model and other capture information were found, which supports a real camera photo.",
+      ),
+    );
   }
 
   const pngInfo = isPng ? readPngTextChunks(imageBuffer) : {};
@@ -306,7 +322,7 @@ export async function analyzeMetadata(
 
   if (pngInfo.prompt && pngInfo.prompt.trim()) {
     score += 30;
-    evidence.push("PNG metadata에서 prompt 필드가 확인되었습니다.");
+    evidence.push(t(locale, "PNG metadata에서 prompt 필드가 확인되었습니다.", "A prompt field was found in the PNG metadata."));
   }
   if (pngInfo.parameters && pngInfo.parameters.trim()) {
     const params = pngInfo.parameters.toLowerCase();
@@ -314,7 +330,13 @@ export async function analyzeMetadata(
       score += 35;
       aiToolDetected = true;
       detectedTools.push("Stable Diffusion");
-      evidence.push("PNG parameters 필드에서 Stable Diffusion 생성 흔적이 확인되었습니다.");
+      evidence.push(
+        t(
+          locale,
+          "PNG parameters 필드에서 Stable Diffusion 생성 흔적이 확인되었습니다.",
+          "The PNG parameters field shows signs of generation by Stable Diffusion.",
+        ),
+      );
     }
   }
   if (pngInfo.workflow && pngInfo.workflow.trim()) {
@@ -324,11 +346,13 @@ export async function analyzeMetadata(
         score += 35;
         aiToolDetected = true;
         detectedTools.push("ComfyUI");
-        evidence.push("PNG workflow JSON에서 ComfyUI 흔적이 확인되었습니다.");
+        evidence.push(
+          t(locale, "PNG workflow JSON에서 ComfyUI 흔적이 확인되었습니다.", "The PNG workflow JSON shows signs of ComfyUI."),
+        );
       }
     } catch {
       score += 20;
-      evidence.push("PNG workflow 필드가 존재합니다.");
+      evidence.push(t(locale, "PNG workflow 필드가 존재합니다.", "A PNG workflow field is present."));
     }
   }
 
@@ -346,12 +370,20 @@ export async function analyzeMetadata(
     const lower = sourceUrl.toLowerCase();
     if (AI_SOFTWARE_KEYWORDS.some((keyword) => lower.includes(keyword))) {
       score += 10;
-      evidence.push("이미지 URL 패턴에서 AI 생성 서비스 흔적이 확인되었습니다.");
+      evidence.push(
+        t(locale, "이미지 URL 패턴에서 AI 생성 서비스 흔적이 확인되었습니다.", "The image URL pattern shows signs of an AI generation service."),
+      );
     }
   }
 
   if (!exifFound && !pngMetadataFound) {
-    limitations.push("메타데이터 부재는 흔한 상황이며 단독으로는 판정 근거가 되지 않습니다.");
+    limitations.push(
+      t(
+        locale,
+        "메타데이터 부재는 흔한 상황이며 단독으로는 판정 근거가 되지 않습니다.",
+        "Missing metadata is common and is not, by itself, grounds for a verdict.",
+      ),
+    );
   }
 
   const c2paFound = isPng ? pngHasC2paChunk(imageBuffer) : jpegHasJumbfAppSegment(imageBuffer);

@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import type { Locale } from "@/lib/i18n";
 
 export type ImageType = "pixel_art" | "illustration" | "photo";
 export type VisionProvider = "openai" | "gemini" | "claude";
@@ -418,10 +419,23 @@ ${CONTENT_CLASSIFIER}
 - bbox 좌표는 0~1 정규화. 특정 불가면 null
 - 응답은 JSON만 출력한다`;
 
-export function buildPrompt(promptType: PromptType, imageType: ImageType, provider: VisionProvider): string {
-  if (promptType === "quick") return QUICK_PROMPT;
-  if (imageType === "pixel_art" || imageType === "illustration") return ILLUSTRATION_PROMPT;
-  if (provider === "gemini") return GEMINI_STANDARD_PROMPT;
-  if (provider === "claude") return CLAUDE_STANDARD_PROMPT;
-  return OPENAI_STANDARD_PROMPT;
+// 판정 기준·체크리스트 등 탐지 로직 자체는 그대로 두고, 최종 JSON의 자유
+// 텍스트 필드만 영어로 바꾸도록 지시하는 문구 — 프롬프트 본문(캘리브레이션)을
+// 건드리지 않아 탐지 품질에 영향을 주지 않는다.
+const ENGLISH_OUTPUT_DIRECTIVE = `
+
+## 출력 언어
+위 지시사항과 판정 기준은 그대로 따르되, 최종 JSON에서 "label", "description",
+"limitations" 등 자유 텍스트 필드의 값은 전부 영어(English)로 작성하라. JSON의
+키 이름과 구조, "type"/"severity" 같은 정해진 값은 그대로 유지한다.`;
+
+export function buildPrompt(promptType: PromptType, imageType: ImageType, provider: VisionProvider, locale: Locale = "ko"): string {
+  let prompt: string;
+  if (promptType === "quick") prompt = QUICK_PROMPT;
+  else if (imageType === "pixel_art" || imageType === "illustration") prompt = ILLUSTRATION_PROMPT;
+  else if (provider === "gemini") prompt = GEMINI_STANDARD_PROMPT;
+  else if (provider === "claude") prompt = CLAUDE_STANDARD_PROMPT;
+  else prompt = OPENAI_STANDARD_PROMPT;
+
+  return locale === "en" ? `${prompt}${ENGLISH_OUTPUT_DIRECTIVE}` : prompt;
 }

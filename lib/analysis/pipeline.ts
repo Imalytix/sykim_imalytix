@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import type { AnalysisResult, SimilarImageMatch, VisionResult } from "@/types/analysis";
+import { t, type Locale } from "@/lib/i18n";
 import { preprocessImage } from "@/lib/image/preprocess";
 import { generatePHash } from "./phash";
 import { analyzeMetadata } from "./metadata";
@@ -76,22 +77,31 @@ export async function analyzeImageBytes(params: {
    *  duration_ms reflects total request handling, not just this function's
    *  slice of it — matches what the old request_logs.duration_ms measured. */
   startedAt: number;
+  locale?: Locale;
 }): Promise<AnalyzeOutcome> {
-  const { imageBytes, mode, inputType, sourceUrl, filename, requestId, userId, context, startedAt } = params;
+  const { imageBytes, mode, inputType, sourceUrl, filename, requestId, userId, context, startedAt, locale = "ko" } = params;
 
   const originalMeta = await sharp(imageBytes, { failOn: "none" })
     .metadata()
     .catch(() => {
-      throw new ImageValidationError("이미지를 읽을 수 없습니다. 지원되는 형식(JPEG/PNG/WEBP)인지 확인해주세요.");
+      throw new ImageValidationError(
+        t(locale, "이미지를 읽을 수 없습니다. 지원되는 형식(JPEG/PNG/WEBP)인지 확인해주세요.", "The image could not be read. Make sure it's a supported format (JPEG/PNG/WEBP)."),
+      );
     });
 
   if (!originalMeta.width || !originalMeta.height) {
-    throw new ImageValidationError("이미지를 읽을 수 없습니다. 지원되는 형식(JPEG/PNG/WEBP)인지 확인해주세요.");
+    throw new ImageValidationError(
+      t(locale, "이미지를 읽을 수 없습니다. 지원되는 형식(JPEG/PNG/WEBP)인지 확인해주세요.", "The image could not be read. Make sure it's a supported format (JPEG/PNG/WEBP)."),
+    );
   }
 
   if (!originalMeta.format || !ALLOWED_FORMATS.has(originalMeta.format)) {
     throw new ImageValidationError(
-      `지원하지 않는 이미지 형식입니다 (감지된 형식: ${originalMeta.format ?? "알 수 없음"}). JPEG/PNG/WEBP만 지원합니다.`,
+      t(
+        locale,
+        `지원하지 않는 이미지 형식입니다 (감지된 형식: ${originalMeta.format ?? "알 수 없음"}). JPEG/PNG/WEBP만 지원합니다.`,
+        `Unsupported image format (detected: ${originalMeta.format ?? "unknown"}). Only JPEG/PNG/WEBP are supported.`,
+      ),
     );
   }
 
@@ -109,7 +119,9 @@ export async function analyzeImageBytes(params: {
   // (width/height는 파일 앞부분에 있어 뒷부분이 잘려도 읽힘) — 실제 픽셀
   // 디코딩은 여기서 처음 일어나므로, 손상이 여기서 드러나면 명확한 400으로 변환.
   const preprocessed = await preprocessImage(imageBytes, longSide).catch(() => {
-    throw new ImageValidationError("이미지 파일이 손상되었거나 불완전합니다. 파일을 다시 확인해주세요.");
+    throw new ImageValidationError(
+      t(locale, "이미지 파일이 손상되었거나 불완전합니다. 파일을 다시 확인해주세요.", "The image file is corrupted or incomplete. Please check the file and try again."),
+    );
   });
   const phash = await generatePHash(preprocessed.buffer);
 
@@ -139,6 +151,7 @@ export async function analyzeImageBytes(params: {
       size_bytes: imageBytes.length,
       color_space: originalMeta.space ?? null,
     },
+    locale,
   });
 
   let visionResults: VisionResult[] = [];
@@ -150,7 +163,7 @@ export async function analyzeImageBytes(params: {
     // reuse that earlier result wholesale (score AND the full provider/
     // evidence/region breakdown) instead of spending LLM calls to almost
     // certainly reproduce the same answer on pixel-identical bytes.
-    const dup = buildDuplicateAggregateResult(exactDuplicate);
+    const dup = buildDuplicateAggregateResult(exactDuplicate, locale);
     aggregateResult = dup.aggregate;
     visionResults = dup.visionResults;
   } else {
@@ -161,13 +174,13 @@ export async function analyzeImageBytes(params: {
     });
 
     const llmCalls: Array<Promise<Awaited<ReturnType<typeof analyzeWithOpenAI>>>> = [];
-    if (routing.call_openai) llmCalls.push(analyzeWithOpenAI(preprocessed.buffer, "image/jpeg", routing.prompt_type));
-    if (routing.call_gemini) llmCalls.push(analyzeWithGemini(preprocessed.buffer, "image/jpeg", routing.prompt_type));
-    if (routing.call_claude) llmCalls.push(analyzeWithClaude(preprocessed.buffer, "image/jpeg", routing.prompt_type));
+    if (routing.call_openai) llmCalls.push(analyzeWithOpenAI(preprocessed.buffer, "image/jpeg", routing.prompt_type, locale));
+    if (routing.call_gemini) llmCalls.push(analyzeWithGemini(preprocessed.buffer, "image/jpeg", routing.prompt_type, locale));
+    if (routing.call_claude) llmCalls.push(analyzeWithClaude(preprocessed.buffer, "image/jpeg", routing.prompt_type, locale));
 
     visionResults = llmCalls.length > 0 ? await Promise.all(llmCalls) : [];
 
-    aggregateResult = aggregateAnalysis(metadataResult, visionResults, similarMatches);
+    aggregateResult = aggregateAnalysis(metadataResult, visionResults, similarMatches, locale);
   }
 
   // Best-effort save of the exact (normalized) bytes that were analyzed —
@@ -199,9 +212,13 @@ export async function analyzeImageBytes(params: {
     evidence_summary: aggregateResult.evidence_summary,
     suspicious_regions: aggregateResult.suspicious_regions,
     limitations: [
-      "AI 생성 여부는 100% 단정할 수 없습니다.",
-      "SNS를 거친 이미지는 메타데이터가 제거되었을 수 있습니다.",
-      "메타데이터는 수정 가능하므로 단독 판정 근거로 사용하지 않습니다.",
+      t(locale, "AI 생성 여부는 100% 단정할 수 없습니다.", "Whether an image is AI-generated cannot be determined with 100% certainty."),
+      t(locale, "SNS를 거친 이미지는 메타데이터가 제거되었을 수 있습니다.", "Images that passed through social media may have had their metadata stripped."),
+      t(
+        locale,
+        "메타데이터는 수정 가능하므로 단독 판정 근거로 사용하지 않습니다.",
+        "Metadata can be edited, so it is not used as sole grounds for a verdict.",
+      ),
       ...aggregateResult.limitations,
     ],
     recommended_action: aggregateResult.recommended_action,

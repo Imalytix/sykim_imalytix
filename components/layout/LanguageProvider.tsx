@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { t, type Locale } from "@/lib/i18n";
 
-export type Locale = "ko" | "en";
+export type { Locale };
 
 type LanguageContextValue = { locale: Locale; setLocale: (locale: Locale) => void };
 
@@ -41,6 +42,4 @@ export function useLanguage() {
   return context;
 }
 
-export function localized(locale: Locale, ko: string, en: string) {
-  return locale === "ko" ? ko : en;
-}
+export const localized = t;

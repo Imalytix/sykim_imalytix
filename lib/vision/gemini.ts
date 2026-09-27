@@ -1,5 +1,6 @@
 import { GoogleGenAI, createPartFromBase64, createPartFromText } from "@google/genai";
 import type { UsageInfo, VisionResult } from "@/types/analysis";
+import type { Locale } from "@/lib/i18n";
 import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
 import { classifyProviderError } from "./errorMessage";
@@ -10,6 +11,7 @@ export async function analyzeWithGemini(
   imageBuffer: Buffer,
   mimeType: string,
   promptType: PromptType,
+  locale: Locale = "ko",
 ): Promise<VisionResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   const modelName = process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash";
@@ -23,7 +25,7 @@ export async function analyzeWithGemini(
   }
 
   const imageType = await detectImageType(imageBuffer);
-  const prompt = buildPrompt(promptType, imageType, "gemini");
+  const prompt = buildPrompt(promptType, imageType, "gemini", locale);
 
   const client = new GoogleGenAI({ apiKey });
 

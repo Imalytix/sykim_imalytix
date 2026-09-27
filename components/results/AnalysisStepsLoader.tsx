@@ -67,7 +67,7 @@ export default function AnalysisStepsLoader({ active, previewUrl }: AnalysisStep
         >
           {previewUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- local blob/data URL preview, next/image adds no value here
-            <img src={previewUrl} alt="분석 중인 이미지" className="h-full w-full object-cover" />
+            <img src={previewUrl} alt={localized(locale, "분석 중인 이미지", "Image being analyzed")} className="h-full w-full object-cover" />
           )}
         </div>
 

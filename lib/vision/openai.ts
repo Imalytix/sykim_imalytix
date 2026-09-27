@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { UsageInfo, VisionResult } from "@/types/analysis";
-import { buildPrompt, detectImageType, QUICK_PROMPT, type PromptType } from "./prompts";
+import type { Locale } from "@/lib/i18n";
+import { buildPrompt, detectImageType, type PromptType } from "./prompts";
 import { extractJsonObject, normalizeModelResult } from "./normalize";
 import { classifyProviderError } from "./errorMessage";
 import { visionBudgetMs, withDeadline } from "./deadline";
@@ -42,6 +43,7 @@ export async function analyzeWithOpenAI(
   imageBuffer: Buffer,
   mimeType: string,
   promptType: PromptType,
+  locale: Locale = "ko",
 ): Promise<VisionResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   const modelName = process.env.OPENAI_VISION_MODEL || "gpt-4o";
@@ -55,7 +57,8 @@ export async function analyzeWithOpenAI(
   }
 
   const imageType = await detectImageType(imageBuffer);
-  const standardPrompt = buildPrompt(promptType, imageType, "openai");
+  const standardPrompt = buildPrompt(promptType, imageType, "openai", locale);
+  const quickPrompt = buildPrompt("quick", imageType, "openai", locale);
 
   const dataUrl = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
 
@@ -75,7 +78,7 @@ export async function analyzeWithOpenAI(
   // a deterministic content match, retrying is actually effective: attempt
   // the assigned prompt twice, then fall back to the short quick prompt once
   // before giving up.
-  const attempts = promptType === "quick" ? [QUICK_PROMPT, QUICK_PROMPT] : [standardPrompt, standardPrompt, QUICK_PROMPT];
+  const attempts = promptType === "quick" ? [quickPrompt, quickPrompt] : [standardPrompt, standardPrompt, quickPrompt];
 
   // Latency covers the whole retry loop (all attempts), not just the last
   // one — that's the actual wall-clock cost this provider imposed on the

@@ -48,7 +48,13 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected, on
 
     const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
     if (file.size > maxBytes) {
-      onError(`이미지 파일이 너무 큽니다 (${(file.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). 더 작은 파일을 선택해주세요.`);
+      onError(
+        localized(
+          locale,
+          `이미지 파일이 너무 큽니다 (${(file.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). 더 작은 파일을 선택해주세요.`,
+          `The image file is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). Please choose a smaller file.`,
+        ),
+      );
       return;
     }
 

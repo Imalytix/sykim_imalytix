@@ -1,4 +1,5 @@
 import type { FinalResult, MetadataAnalysis, SimilarImageMatch, SuspiciousRegion, VisionResult } from "@/types/analysis";
+import { t, type Locale } from "@/lib/i18n";
 
 const CONFIDENCE_WEIGHTS: Record<string, number> = { high: 1.0, medium: 0.7, low: 0.4 };
 const VISUAL_EVIDENCE_POINTS: Record<string, number> = { high: 5, medium: 3, low: 1 };
@@ -26,25 +27,43 @@ const SIMILAR_IMAGE_MAX_POINTS = 15;
 // means much — matches this far apart barely share pixel structure.
 const PHASH_MEANINGFUL_DISTANCE = 10;
 
-const FINAL_LABELS: Array<[threshold: number, label: string, isAiGenerated: boolean | null, confidence: FinalResult["confidence"]]> = [
-  [80, "AI 생성 가능성 높음", true, "high"],
-  [60, "AI 생성 의심", true, "medium"],
-  [31, "판단 불확실", null, "low"],
-  [0, "실제 이미지 가능성 높음", false, "medium"],
+const FINAL_LABELS: Array<[threshold: number, ko: string, en: string, isAiGenerated: boolean | null, confidence: FinalResult["confidence"]]> = [
+  [80, "AI 생성 가능성 높음", "Likely AI-generated", true, "high"],
+  [60, "AI 생성 의심", "Possibly AI-generated", true, "medium"],
+  [31, "판단 불확실", "Uncertain", null, "low"],
+  [0, "실제 이미지 가능성 높음", "Likely a real photo", false, "medium"],
 ];
 
-function labelFromScore(score: number): [string, boolean | null, FinalResult["confidence"]] {
-  for (const [threshold, label, isAiGenerated, confidence] of FINAL_LABELS) {
-    if (score >= threshold) return [label, isAiGenerated, confidence];
+function labelFromScore(score: number, locale: Locale): [string, boolean | null, FinalResult["confidence"]] {
+  for (const [threshold, ko, en, isAiGenerated, confidence] of FINAL_LABELS) {
+    if (score >= threshold) return [t(locale, ko, en), isAiGenerated, confidence];
   }
-  return ["실제 이미지 가능성 높음", false, "medium"];
+  return [t(locale, "실제 이미지 가능성 높음", "Likely a real photo"), false, "medium"];
 }
 
-export function makeRecommendation(score: number): string {
-  if (score >= 80) return "AI 생성 이미지일 가능성이 높으므로 실제 사진처럼 공유하기 전 출처 확인이 필요합니다.";
-  if (score >= 60) return "AI 생성 의심 이미지입니다. 원본 출처와 추가 정보를 확인하는 것이 좋습니다.";
-  if (score >= 31) return "판단이 불확실합니다. 원본 파일, 출처, 추가 맥락 확인이 필요합니다.";
-  return "현재 분석 기준으로는 실제 이미지 가능성이 높습니다.";
+export function makeRecommendation(score: number, locale: Locale = "ko"): string {
+  if (score >= 80) {
+    return t(
+      locale,
+      "AI 생성 이미지일 가능성이 높으므로 실제 사진처럼 공유하기 전 출처 확인이 필요합니다.",
+      "This image is likely AI-generated — verify the source before sharing it as a real photo.",
+    );
+  }
+  if (score >= 60) {
+    return t(
+      locale,
+      "AI 생성 의심 이미지입니다. 원본 출처와 추가 정보를 확인하는 것이 좋습니다.",
+      "This image may be AI-generated. We recommend checking the original source and additional context.",
+    );
+  }
+  if (score >= 31) {
+    return t(
+      locale,
+      "판단이 불확실합니다. 원본 파일, 출처, 추가 맥락 확인이 필요합니다.",
+      "The result is inconclusive. Check the original file, its source, and additional context.",
+    );
+  }
+  return t(locale, "현재 분석 기준으로는 실제 이미지 가능성이 높습니다.", "Based on this analysis, the image is likely real.");
 }
 
 function visionMultiplier(avgScore: number, confidence: string, activeSignals: number): number {
@@ -78,6 +97,7 @@ export function aggregateAnalysis(
    *  Closest-first (find_similar_images orders by distance asc), so
    *  matches[0] is what actually gets used. */
   similarMatches: SimilarImageMatch[] = [],
+  locale: Locale = "ko",
 ): AggregateResult {
   let finalScore = 0;
   const evidenceSummary: string[] = [];
@@ -170,13 +190,18 @@ export function aggregateAnalysis(
     const direction = usableMatch.is_ai_generated ? 1 : -1;
     finalScore += direction * closeness * SIMILAR_IMAGE_MAX_POINTS;
     evidenceSummary.push(
-      `이전에 분석한 유사 이미지(픽셀 유사, 요청 ID: ${usableMatch.request_id})가 ` +
-        `${usableMatch.is_ai_generated ? "AI 생성" : "실제 이미지"}로 판정되어 이번 결과에 반영되었습니다.`,
+      t(
+        locale,
+        `이전에 분석한 유사 이미지(픽셀 유사, 요청 ID: ${usableMatch.request_id})가 ` +
+          `${usableMatch.is_ai_generated ? "AI 생성" : "실제 이미지"}로 판정되어 이번 결과에 반영되었습니다.`,
+        `A previously analyzed similar image (pixel-similar, request ID: ${usableMatch.request_id}) was judged ` +
+          `${usableMatch.is_ai_generated ? "AI-generated" : "a real photo"}, which influenced this result.`,
+      ),
     );
   }
 
   finalScore = Math.max(0, Math.min(100, Math.round(finalScore)));
-  const [label, isAiGenerated, confidenceLevel] = labelFromScore(finalScore);
+  const [label, isAiGenerated, confidenceLevel] = labelFromScore(finalScore, locale);
 
   return {
     final_result: {
@@ -188,7 +213,7 @@ export function aggregateAnalysis(
     evidence_summary: evidenceSummary.slice(0, 10),
     suspicious_regions: suspiciousRegions.slice(0, 10),
     limitations: [...new Set(limitations)],
-    recommended_action: makeRecommendation(finalScore),
+    recommended_action: makeRecommendation(finalScore, locale),
     used_similar_match: Boolean(usableMatch),
   };
 }
@@ -213,12 +238,18 @@ export interface DuplicateAggregateResult {
  * stripped-down summary — only the "이전에 분석한 동일 이미지" note at the
  * top of evidence_summary distinguishes it.
  */
-export function buildDuplicateAggregateResult(match: SimilarImageMatch): DuplicateAggregateResult {
+export function buildDuplicateAggregateResult(match: SimilarImageMatch, locale: Locale = "ko"): DuplicateAggregateResult {
   const score = match.ai_probability !== null ? Math.round(Math.max(0, Math.min(100, match.ai_probability))) : 50;
-  const [label, isAiGenerated, confidenceLevel] = labelFromScore(score);
+  const [label, isAiGenerated, confidenceLevel] = labelFromScore(score, locale);
   const cached = match.full_result;
-  const analyzedDate = new Date(match.created_at).toLocaleDateString("ko-KR");
-  const note = `이전에 분석한 동일 이미지(요청 ID: ${match.request_id}, ${analyzedDate} 분석)의 결과를 그대로 표시합니다 — 재분석하지 않았습니다.`;
+  const analyzedDate = new Date(match.created_at).toLocaleDateString(locale === "en" ? "en-US" : "ko-KR");
+  // 이 안내문만 새로 만드는 문구라 로케일을 따른다 — cached.evidence_summary 등은
+  // 그 이전 분석 당시의 언어로 이미 저장돼 있어 여기서 다시 번역하지 않는다.
+  const note = t(
+    locale,
+    `이전에 분석한 동일 이미지(요청 ID: ${match.request_id}, ${analyzedDate} 분석)의 결과를 그대로 표시합니다 — 재분석하지 않았습니다.`,
+    `Showing the result of an identical image analyzed previously (request ID: ${match.request_id}, analyzed ${analyzedDate}) — this was not re-analyzed.`,
+  );
 
   return {
     visionResults: cached?.vision_results ?? [],
@@ -226,8 +257,14 @@ export function buildDuplicateAggregateResult(match: SimilarImageMatch): Duplica
       final_result: { is_ai_generated: isAiGenerated, ai_probability: score, label, confidence: confidenceLevel },
       evidence_summary: [note, ...(cached?.evidence_summary ?? [])].slice(0, 10),
       suspicious_regions: cached?.suspicious_regions ?? [],
-      limitations: ["이 결과는 새로 분석되지 않고, 이전에 분석한 동일 이미지의 판정을 재사용한 것입니다."],
-      recommended_action: makeRecommendation(score),
+      limitations: [
+        t(
+          locale,
+          "이 결과는 새로 분석되지 않고, 이전에 분석한 동일 이미지의 판정을 재사용한 것입니다.",
+          "This result was not freshly analyzed — it reuses the verdict from an identical image analyzed previously.",
+        ),
+      ],
+      recommended_action: makeRecommendation(score, locale),
       used_similar_match: false,
     },
   };

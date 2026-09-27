@@ -7,7 +7,7 @@ import AnalysisResultView from "@/components/results/AnalysisResultView";
 import AppFooter from "@/components/layout/AppFooter";
 import AppHeader from "@/components/layout/AppHeader";
 import ImageUploader from "@/components/upload/ImageUploader";
-import { localized, useLanguage } from "@/components/layout/LanguageProvider";
+import { localized, useLanguage, type Locale } from "@/components/layout/LanguageProvider";
 import { trackVerificationComplete, trackVerificationStart, verdictFromProbability } from "@/lib/analytics/gtag";
 import type { AnalysisResult } from "@/types/analysis";
 
@@ -65,14 +65,18 @@ const TECH = [
  *  측정을 이 안에서 하는 이유가 둘 있다: 재는 구간(업로드 + 서버 처리 + 응답)이
  *  정확히 이 함수의 일이고, performance.now()를 컴포넌트 본문에서 부르면
  *  react-hooks/purity가 렌더 중 비순수 호출로 잡는다. */
-async function analyzeImageFile(file: File): Promise<{ result: AnalysisResult; latencyMs: number }> {
+async function analyzeImageFile(file: File, locale: Locale): Promise<{ result: AnalysisResult; latencyMs: number }> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("mode", "standard");
 
   // 시스템 시계 변경에 영향받지 않는 단조 증가 시계.
   const startedAt = performance.now();
-  const response = await fetch("/api/analyze/image", { method: "POST", body: formData });
+  // 로케일은 formData가 아니라 헤더로 보낸다 — 서버가 레이트리밋/본문 크기
+  // 검사처럼 formData를 파싱하기 전에 실패하는 경로에서도 이 값을 읽어 그
+  // 오류 메시지까지 로케일에 맞출 수 있게 하기 위함(app/api/analyze/image/
+  // route.ts의 readLocale 참고).
+  const response = await fetch("/api/analyze/image", { method: "POST", body: formData, headers: { "X-Locale": locale } });
   // Vercel이 요청/응답 본문이 4.5MB를 넘으면 우리 라우트 코드가 실행되기도
   // 전에 플랫폼 레벨에서 JSON이 아닌 응답(예: "Request Entity Too Large")을
   // 돌려줄 수 있음 — response.json()이 그대로 SyntaxError를 던지면 사용자가
@@ -89,16 +93,16 @@ async function analyzeImageFile(file: File): Promise<{ result: AnalysisResult; l
   const detail = typeof data === "object" && data !== null && "detail" in data ? String((data as { detail: unknown }).detail) : null;
 
   if (!response.ok) {
-    if (response.status === 413) throw new Error("이미지 파일이 너무 큽니다. 더 작은 파일을 선택해주세요.");
+    if (response.status === 413) throw new Error(localized(locale, "이미지 파일이 너무 큽니다. 더 작은 파일을 선택해주세요.", "The image file is too large. Please choose a smaller file."));
     // 라우트가 직접 낸 오류는 항상 detail을 담아 보낸다(요청 ID 포함).
     if (detail) throw new Error(detail);
     // 여기까지 왔다 = 우리 라우트가 아니라 그 앞단(플랫폼 에러 페이지, 함수
     // 타임아웃, 게이트웨이 등)에서 끊긴 것. 예전에는 이 경우 원인을 좁힐 단서
     // 없이 "분석에 실패했습니다."만 띄웠다 — 최소한 상태 코드는 남긴다.
     console.error("[analyze] JSON이 아닌 오류 응답", response.status, raw.slice(0, 500));
-    throw new Error(`분석에 실패했습니다. (서버 응답 ${response.status})`);
+    throw new Error(localized(locale, `분석에 실패했습니다. (서버 응답 ${response.status})`, `Analysis failed. (server response ${response.status})`));
   }
-  if (!data) throw new Error("서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.");
+  if (!data) throw new Error(localized(locale, "서버 응답을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.", "The server response could not be processed. Please try again shortly."));
   return { result: data as AnalysisResult, latencyMs: performance.now() - startedAt };
 }
 
@@ -526,7 +530,7 @@ export default function Home() {
   const handleAnalyze = async (fileOverride?: File) => {
     const file = fileOverride ?? selectedFile;
     if (!file) {
-      setErrorMessage("이미지를 먼저 선택해주세요.");
+      setErrorMessage(localized(locale, "이미지를 먼저 선택해주세요.", "Please select an image first."));
       return;
     }
     // 파일을 확보한 뒤에 보낸다 — 파일 없이 버튼만 누른 경우는 검증을 시작한 게
@@ -536,7 +540,7 @@ export default function Home() {
     try {
       setErrorMessage(null);
       setIsLoading(true);
-      const { result, latencyMs } = await analyzeImageFile(file);
+      const { result, latencyMs } = await analyzeImageFile(file, locale);
       setPreviewUrl(result.analyzed_image_data_url);
       setAnalysisResult(result);
       trackVerificationComplete({
@@ -547,7 +551,7 @@ export default function Home() {
         latencyMs,
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "분석에 실패했습니다.");
+      setErrorMessage(error instanceof Error ? error.message : localized(locale, "분석에 실패했습니다.", "Analysis failed."));
     } finally {
       setIsLoading(false);
     }
@@ -560,7 +564,7 @@ export default function Home() {
     try {
       setErrorMessage(null);
       const response = await fetch(src);
-      if (!response.ok) throw new Error("샘플 이미지를 불러올 수 없습니다.");
+      if (!response.ok) throw new Error(localized(locale, "샘플 이미지를 불러올 수 없습니다.", "The sample image could not be loaded."));
       const blob = await response.blob();
       const filename = src.split("/").pop() ?? "sample.jpg";
       const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
@@ -568,7 +572,7 @@ export default function Home() {
       setPreviewUrl(src);
       await handleAnalyze(file);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "샘플 이미지를 불러올 수 없습니다.");
+      setErrorMessage(error instanceof Error ? error.message : localized(locale, "샘플 이미지를 불러올 수 없습니다.", "The sample image could not be loaded."));
     }
   };
 
