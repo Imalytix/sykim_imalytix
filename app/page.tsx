@@ -606,18 +606,25 @@ export default function Home() {
               <div className="hero-veil" aria-hidden="true" />
 
               <div ref={heroCenterRef} className="relative z-[5] mx-auto max-w-2xl px-6 text-center sm:max-w-4xl">
-                <h1 className="break-keep text-[34px] leading-[1.2] font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-[44px]">
-                  {locale === "ko" ? (
-                    "더 확실한 판단을 위한 이미지 검증"
-                  ) : (
-                    <>
-                      Image Verification For
-                      <br />
-                      More Confident Decisions
-                    </>
-                  )}
+                {/* 히어로 블록은 화면 세로 중앙 정렬이라, 언어마다 제목/본문 줄 수가
+                    다르면 블록 높이가 바뀌어 업로드 박스·CTA까지 위아래로 튄다.
+                    제목은 두 줄(2.4em), 본문도 두 줄(3.25em = 2 × leading 1.625)
+                    높이를 항상 확보하고 제목은 아래쪽에 붙여, 한 줄짜리 한국어
+                    제목도 영어 둘째 줄과 같은 위치에 오게 한다. */}
+                <h1 className="flex min-h-[2.4em] flex-col justify-end break-keep text-[34px] leading-[1.2] font-bold tracking-tight text-[#f4f4f6] [text-shadow:0_4px_30px_rgba(0,0,0,0.6)] sm:text-[44px]">
+                  <span>
+                    {locale === "ko" ? (
+                      "더 확실한 판단을 위한 이미지 검증"
+                    ) : (
+                      <>
+                        Image Verification For
+                        <br />
+                        More Confident Decisions
+                      </>
+                    )}
+                  </span>
                 </h1>
-                <p className="mt-4 whitespace-pre-line break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-[20px]">
+                <p className="mt-4 min-h-[3.25em] whitespace-pre-line break-keep text-base leading-relaxed text-[rgba(244,244,246,0.82)] [text-shadow:0_2px_22px_rgba(0,0,0,0.75)] sm:text-[20px]">
                   {localized(
                     locale,
                     "Imalytix는 AI 생성 여부와 이미지 조작 가능성을 다양한 분석 기법으로 검증하고,\n결과와 판단 근거를 제공하는 이미지 검증 서비스입니다.",
