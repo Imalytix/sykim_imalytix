@@ -721,3 +721,48 @@ group by u.id, u.email, u.created_at
 order by total_requests desc;
 
 comment on view v_user_stats is '로그인 사용자별 가입일/총 분석 횟수/판정 분포/평균 점수/최근 활동 — 유저 단위 리텐션·활용도 파악용.';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 2026-10-03: 수동 탐지 성능 리뷰 — scripts/review-tool.js(로컬 전용, 배포 안 됨)가
+-- 과거 분석 결과를 사람이 눈으로 보고 정답(실제/AI생성/애매함)을 매겨 시스템 판정과
+-- 대조하는 데 씀. service_role 키로만 접근하는 내부 도구라 RLS는 걸되 anon/
+-- authenticated용 공개 정책은 두지 않습니다(service_role만 조회/기록 가능).
+-- ═══════════════════════════════════════════════════════════════════════════
+create table if not exists manual_review_labels (
+  request_id bigint primary key references verification_requests (id) on delete cascade,
+  ground_truth text not null check (ground_truth in ('real', 'ai_generated', 'unsure')),
+  note text,
+  reviewed_at timestamptz not null default now()
+);
+
+comment on table manual_review_labels is '사람이 직접 매긴 정답 라벨 — verification_results.is_ai_generated와 대조해 탐지율(정탐/오탐)을 계산하는 데 씀. scripts/review-tool.js 전용, 공개 RLS 정책 없음.';
+
+alter table manual_review_labels enable row level security;
+
+-- v_review_candidates — review-tool.js가 그대로 셀렉트해서 쓰는 조인 뷰. 요청당
+-- request_images/verification_results가 항상 1행이라는 현재 전제(각 테이블
+-- comment 참고)를 그대로 따른다.
+create or replace view v_review_candidates as
+select
+  vr.id as request_id,
+  vr.request_id as public_request_id,
+  vr.created_at,
+  vr.input_type,
+  ri.image_url,
+  ri.width,
+  ri.height,
+  res.final_score,
+  res.final_label,
+  res.is_ai_generated,
+  res.confidence,
+  mrl.ground_truth,
+  mrl.note as review_note,
+  mrl.reviewed_at
+from verification_requests vr
+join request_images ri on ri.request_id = vr.id
+join verification_results res on res.request_id = vr.id
+left join manual_review_labels mrl on mrl.request_id = vr.id
+where vr.status = 'ok'
+order by vr.created_at desc;
+
+comment on view v_review_candidates is '수동 리뷰 대상 전체 목록(이미지+판정+기존 라벨 조인) — scripts/review-tool.js가 그대로 조회하는 뷰.';

@@ -1,8 +1,46 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const ADMIN_PATH_PREFIXES = ["/admin", "/api/admin"];
+
+/** Shared-password gate for the internal /admin/* review tool — separate
+ *  from (and unrelated to) the Supabase session refresh below. Not a
+ *  per-user permission system: anyone with the one shared password gets in,
+ *  which is fine for a small team pointed at a known URL, but means there's
+ *  no per-person audit trail or revocation. Fails closed if the env vars
+ *  aren't set, rather than leaving the tool open. */
+function hasValidAdminBasicAuth(request: NextRequest): boolean {
+  const expectedUser = process.env.ADMIN_BASIC_AUTH_USER;
+  const expectedPassword = process.env.ADMIN_BASIC_AUTH_PASSWORD;
+  if (!expectedUser || !expectedPassword) return false;
+
+  const header = request.headers.get("authorization");
+  if (!header || !header.startsWith("Basic ")) return false;
+
+  // atob/btoa are the Edge runtime's (and browsers') base64 primitives —
+  // Buffer isn't available here.
+  let decoded: string;
+  try {
+    decoded = atob(header.slice("Basic ".length));
+  } catch {
+    return false;
+  }
+  const separatorIndex = decoded.indexOf(":");
+  if (separatorIndex < 0) return false;
+  return decoded.slice(0, separatorIndex) === expectedUser && decoded.slice(separatorIndex + 1) === expectedPassword;
+}
+
+function requireAdminBasicAuth(): NextResponse {
+  return new NextResponse("인증이 필요합니다.", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="Imalytix Admin"' },
+  });
+}
+
 /**
- * Refreshes the Supabase auth session cookie on every matched request.
+ * Refreshes the Supabase auth session cookie on every matched request (for
+ * everything except the /admin/* tool, gated above by its own shared
+ * password instead).
  *
  * Named `proxy` (not `middleware`) per this Next.js version's file
  * convention — `middleware.ts` is deprecated as of v16.0.0 and renamed to
@@ -21,9 +59,16 @@ import { NextResponse, type NextRequest } from "next/server";
  * Deliberately minimal — no route-protection/redirect logic here (that's
  * app/history/page.tsx's job, checked per-page). Mixing auth *gating* into
  * this file is exactly the mistake Supabase's own docs warn against: it
- * makes "why was I logged out" bugs much harder to trace.
+ * makes "why was I logged out" bugs much harder to trace. The /admin/* gate
+ * above is the one deliberate exception — it's a different, unrelated auth
+ * mechanism (a shared password, not a Supabase session), so it can't cause
+ * that same confusion.
  */
 export async function proxy(request: NextRequest) {
+  if (ADMIN_PATH_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
+    return hasValidAdminBasicAuth(request) ? NextResponse.next() : requireAdminBasicAuth();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
