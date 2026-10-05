@@ -774,9 +774,13 @@ select
   res.is_ai_generated,
   res.confidence,
   mrl.ground_truth,
-  mrl.source as label_source,
   mrl.note as review_note,
-  mrl.reviewed_at
+  mrl.reviewed_at,
+  -- CREATE OR REPLACE VIEW는 기존 컬럼 이름/순서를 그대로 유지해야 하고 새
+  -- 컬럼은 반드시 맨 끝에만 추가할 수 있다(42P16) — label_source는 나중에
+  -- 추가된 컬럼이라 여기 끝에 둔다. 컬럼 순서를 바꾸고 싶으면 CREATE OR
+  -- REPLACE 대신 DROP VIEW 후 재생성해야 한다.
+  mrl.source as label_source
 from verification_requests vr
 join request_images ri on ri.request_id = vr.id
 join verification_results res on res.request_id = vr.id
