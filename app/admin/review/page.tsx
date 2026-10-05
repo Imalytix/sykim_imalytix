@@ -169,10 +169,6 @@ export default function AdminReviewPage() {
         <h1 className="whitespace-nowrap text-[15px] font-bold">Imalytix 탐지 성능 리뷰</h1>
         <div className="flex flex-wrap gap-4 text-[13px]">
           <div className="flex flex-col">
-            <strong className="text-[17px] tabular-nums">{stats.total}</strong>
-            <span className="text-[11px] text-[#777]">전체 건수</span>
-          </div>
-          <div className="flex flex-col">
             <strong className="text-[17px] tabular-nums">{stats.reviewed}</strong>
             <span className="text-[11px] text-[#777]">
               리뷰 완료 <span className="text-[#999]">(🔒 {stats.scriptLocked}건 스크립트)</span>
