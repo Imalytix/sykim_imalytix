@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { localized, useLanguage } from "@/components/layout/LanguageProvider";
+import { compressImageIfNeeded } from "@/lib/utils/compressImage";
 
 // Kept in sync with the server-side MAX_FILE_SIZE_MB default (see
 // app/api/analyze/image/route.ts) — this is a UX shortcut only, not a
@@ -47,19 +48,25 @@ export default function ImageUploader({ previewUrl, fileName, onFileSelected, on
     if (!file) return;
 
     const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
-    if (file.size > maxBytes) {
+    // 용량 초과 파일은 거부하기 전에 먼저 브라우저에서 리사이즈+재압축을
+    // 시도한다 — 서버가 분석 전에 어차피 1024px로 줄여 쓰므로 화질 손실
+    // 걱정 없이 제한을 넘기는 대부분의 사진(특히 고해상도 스크린샷)을
+    // 구제할 수 있다. 그래도 못 줄이면 기존과 같은 에러로 안내한다.
+    const uploadFile = file.size > maxBytes ? await compressImageIfNeeded(file, maxBytes) : file;
+
+    if (uploadFile.size > maxBytes) {
       onError(
         localized(
           locale,
-          `이미지 파일이 너무 큽니다 (${(file.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). 더 작은 파일을 선택해주세요.`,
-          `The image file is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). Please choose a smaller file.`,
+          `이미지 파일이 너무 큽니다 (${(uploadFile.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). 더 작은 파일을 선택해주세요.`,
+          `The image file is too large (${(uploadFile.size / (1024 * 1024)).toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB). Please choose a smaller file.`,
         ),
       );
       return;
     }
 
-    const dataUrl = await fileToDataUrl(file);
-    onFileSelected(file, dataUrl);
+    const dataUrl = await fileToDataUrl(uploadFile);
+    onFileSelected(uploadFile, dataUrl);
   };
 
   return (
