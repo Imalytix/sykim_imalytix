@@ -16,6 +16,9 @@ interface ReviewRow {
   is_ai_generated: boolean | null;
   confidence: string | null;
   ground_truth: GroundTruth | null;
+  /** 'manual' = 사람이 버튼으로 매김(수정 가능). 'script' = measure-accuracy.js가
+   *  이미 아는 정답으로 자동 기록(수정 불가 — 잠겨 표시됨). null = 미라벨. */
+  label_source: "manual" | "script" | null;
   review_note: string | null;
   reviewed_at: string | null;
   image_url: string | null;
@@ -38,6 +41,7 @@ function computeStats(rows: ReviewRow[]) {
     correct = 0,
     incorrect = 0,
     excluded = 0,
+    scriptLocked = 0,
     tp = 0,
     fp = 0,
     tn = 0,
@@ -45,6 +49,7 @@ function computeStats(rows: ReviewRow[]) {
   for (const row of rows) {
     if (!row.ground_truth) continue;
     reviewed++;
+    if (row.label_source === "script") scriptLocked++;
     const match = matchesSystem(row.ground_truth, row.is_ai_generated);
     if (match === null) {
       excluded++;
@@ -59,12 +64,15 @@ function computeStats(rows: ReviewRow[]) {
   }
   const denom = correct + incorrect;
   const accuracy = denom > 0 ? ((correct / denom) * 100).toFixed(1) : null;
-  return { total: rows.length, reviewed, correct, incorrect, excluded, accuracy, tp, fp, tn, fn };
+  return { total: rows.length, reviewed, correct, incorrect, excluded, scriptLocked, accuracy, tp, fp, tn, fn };
 }
+
+const GROUND_TRUTH_TEXT: Record<GroundTruth, string> = { real: "실제", ai_generated: "AI생성", unsure: "애매함" };
 
 function ReviewCard({ row, onLabel }: { row: ReviewRow; onLabel: (requestId: number, groundTruth: GroundTruth) => void }) {
   const match = row.ground_truth ? matchesSystem(row.ground_truth, row.is_ai_generated) : null;
   const dotColor = row.is_ai_generated === true ? "bg-rose-500" : row.is_ai_generated === false ? "bg-blue-500" : "bg-amber-500";
+  const isLocked = row.label_source === "script";
 
   const buttons: { value: GroundTruth; label: string; activeClass: string }[] = [
     { value: "real", label: "실제", activeClass: "bg-blue-600 text-white border-blue-600" },
@@ -95,18 +103,27 @@ function ReviewCard({ row, onLabel }: { row: ReviewRow; onLabel: (requestId: num
             {match ? "정탐" : "오탐"}
           </span>
         )}
-        <div className="flex gap-1">
-          {buttons.map((b) => (
-            <button
-              key={b.value}
-              type="button"
-              onClick={() => onLabel(row.request_id, b.value)}
-              className={`flex-1 rounded-md border border-[#d7d4cb] bg-[#faf9f6] px-1 py-1.5 text-[11px] hover:bg-[#f0efe9] ${row.ground_truth === b.value ? b.activeClass : ""}`}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
+        {isLocked ? (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-[#d7d4cb] bg-[#f4f3ef] px-2 py-1.5 text-[11px] text-[#555]">
+            <span>
+              🔒 정답: <strong>{row.ground_truth ? GROUND_TRUTH_TEXT[row.ground_truth] : "-"}</strong>
+            </span>
+            <span className="text-[10px] text-[#999]">스크립트 자동 기록</span>
+          </div>
+        ) : (
+          <div className="flex gap-1">
+            {buttons.map((b) => (
+              <button
+                key={b.value}
+                type="button"
+                onClick={() => onLabel(row.request_id, b.value)}
+                className={`flex-1 rounded-md border border-[#d7d4cb] bg-[#faf9f6] px-1 py-1.5 text-[11px] hover:bg-[#f0efe9] ${row.ground_truth === b.value ? b.activeClass : ""}`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -157,7 +174,9 @@ export default function AdminReviewPage() {
           </div>
           <div className="flex flex-col">
             <strong className="text-[17px] tabular-nums">{stats.reviewed}</strong>
-            <span className="text-[11px] text-[#777]">리뷰 완료</span>
+            <span className="text-[11px] text-[#777]">
+              리뷰 완료 <span className="text-[#999]">(🔒 {stats.scriptLocked}건 스크립트)</span>
+            </span>
           </div>
           <div className="flex flex-col">
             <strong className="text-[17px] tabular-nums text-[#1f5fae]">{stats.accuracy ? `${stats.accuracy}%` : "–"}</strong>

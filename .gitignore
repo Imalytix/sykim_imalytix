@@ -54,3 +54,10 @@ next-env.d.ts
 # generated performance test images/reports (regenerate via scripts/generate-test-dataset.js)
 /test-data/images/
 /test-data/report*.json
+
+# accuracy-measurement dataset (scripts/measure-accuracy.js) — real team-member photos and
+# AI-generated/forged test images, never commit (personal photos + repo bloat)
+/test-data/accuracy-dataset/*
+!/test-data/accuracy-dataset/README.md
+/test-data/accuracy-report.json
+/test-data/accuracy-report.md

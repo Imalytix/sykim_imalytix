@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:dataset": "node scripts/generate-test-dataset.js",
     "test:perf": "node scripts/run-perf-test.js",
+    "test:accuracy": "node --env-file=.env.local scripts/measure-accuracy.js",
     "inspect:png": "node scripts/inspect-png-chunks.js",
     "review": "node --env-file=.env.local scripts/review-tool.js"
   },

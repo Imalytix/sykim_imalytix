@@ -732,16 +732,34 @@ create table if not exists manual_review_labels (
   request_id bigint primary key references verification_requests (id) on delete cascade,
   ground_truth text not null check (ground_truth in ('real', 'ai_generated', 'unsure')),
   note text,
-  reviewed_at timestamptz not null default now()
+  reviewed_at timestamptz not null default now(),
+  -- 'manual' = 사람이 /admin/review에서 버튼을 눌러 매긴 라벨(수정 가능).
+  -- 'script' = scripts/measure-accuracy.js가 이미 정답을 아는 상태로 분석한
+  -- 뒤 자동으로 써넣은 라벨 — 정답이 확정된 데이터라 UI/API 양쪽에서 수정을
+  -- 막는다(app/api/admin/review/route.ts의 POST가 이 값을 보고 거부함).
+  source text not null default 'manual' check (source in ('manual', 'script'))
 );
 
-comment on table manual_review_labels is '사람이 직접 매긴 정답 라벨 — verification_results.is_ai_generated와 대조해 탐지율(정탐/오탐)을 계산하는 데 씀. scripts/review-tool.js 전용, 공개 RLS 정책 없음.';
+comment on table manual_review_labels is '정답 라벨 — verification_results.is_ai_generated와 대조해 탐지율(정탐/오탐)을 계산하는 데 씀. source=manual(사람이 직접 매김, 수정 가능) / script(측정 스크립트가 이미 아는 정답으로 자동 기록, 수정 불가). 공개 RLS 정책 없음(service_role 전용).';
 
 alter table manual_review_labels enable row level security;
 
--- v_review_candidates — review-tool.js가 그대로 셀렉트해서 쓰는 조인 뷰. 요청당
--- request_images/verification_results가 항상 1행이라는 현재 전제(각 테이블
--- comment 참고)를 그대로 따른다.
+-- 기존에 이 컬럼 없이 만들어진 환경을 위한 보강 — 과거에 UI로 매긴 라벨은
+-- 전부 'manual'이었으므로 default만으로 올바르게 채워진다.
+alter table manual_review_labels add column if not exists source text not null default 'manual';
+alter table manual_review_labels drop constraint if exists manual_review_labels_source_check;
+alter table manual_review_labels add constraint manual_review_labels_source_check check (source in ('manual', 'script'));
+
+-- v_review_candidates — review-tool.js/app/admin/review가 그대로 셀렉트해서
+-- 쓰는 조인 뷰. 요청당 request_images/verification_results가 항상 1행이라는
+-- 현재 전제(각 테이블 comment 참고)를 그대로 따른다.
+--
+-- 2026-10-05: scripts/measure-accuracy.js가 만든 요청을 한때 이 뷰에서 아예
+-- 제외했었는데(User-Agent로 식별해 필터), 돌이켜보니 "review 페이지에도
+-- 보이되, 이미 정답이 채워진 채 잠긴 상태"가 원하는 동작이었다 — 완전히
+-- 숨기면 그 데이터가 리뷰 페이지의 전체 탐지율 집계에서도 빠져버리기
+-- 때문. 그래서 숨기는 대신 manual_review_labels.source로 구분해서 그대로
+-- 노출한다.
 create or replace view v_review_candidates as
 select
   vr.id as request_id,
@@ -756,6 +774,7 @@ select
   res.is_ai_generated,
   res.confidence,
   mrl.ground_truth,
+  mrl.source as label_source,
   mrl.note as review_note,
   mrl.reviewed_at
 from verification_requests vr
@@ -765,4 +784,4 @@ left join manual_review_labels mrl on mrl.request_id = vr.id
 where vr.status = 'ok'
 order by vr.created_at desc;
 
-comment on view v_review_candidates is '수동 리뷰 대상 전체 목록(이미지+판정+기존 라벨 조인) — scripts/review-tool.js가 그대로 조회하는 뷰.';
+comment on view v_review_candidates is '리뷰 대상 전체 목록(이미지+판정+기존 라벨 조인) — app/admin/review가 조회하는 뷰. label_source=script인 행은 스크립트가 이미 정답을 알고 자동 기록한 것이라 UI에서 잠겨 표시된다.';
